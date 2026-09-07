@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { SurveyData, ScoringResult } from './types/survey';
 import { MasterPegawai } from './types/pegawai';
 import { DEFAULT_MASTER_PEGAWAI } from './data/defaultPegawai';
+import { DEFAULT_GAS_URL } from './config/constants';
 import { calculateSurveyScore } from './utils/scoringEngine';
 import { Header } from './components/Header';
+import { WelcomeScreen } from './components/WelcomeScreen';
 import { StepIdentity } from './components/StepIdentity';
 import { StepExperience } from './components/StepExperience';
 import { StepInterest } from './components/StepInterest';
@@ -14,8 +16,6 @@ import { StepClosing } from './components/StepClosing';
 import { ResultCard } from './components/ResultCard';
 import { AdminPortal } from './components/AdminPortal';
 import { AdminLogin } from './components/AdminLogin';
-import { WelcomeScreen } from './components/WelcomeScreen';
-import { DEFAULT_GAS_URL } from './config/constants';
 import confetti from 'canvas-confetti';
 import {
   ChevronLeft,
@@ -85,6 +85,10 @@ export function App() {
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [toastMessage, setToastMessage] = useState<string>('');
 
+  // Layar Pengantar (Welcome Screen) & Proteksi Bot Honeypot
+  const [isStarted, setIsStarted] = useState<boolean>(false);
+  const [honeypot, setHoneypot] = useState<string>('');
+
   // Routing Admin (/admin atau #admin) & Autentikasi Sandi (ryanagung123)
   const [isAdminPath, setIsAdminPath] = useState<boolean>(() => {
     return window.location.pathname.includes('/admin') || window.location.hash === '#admin';
@@ -100,7 +104,6 @@ export function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // Jika data tersimpan sebelumnya hanya 12 dummy lama, otomatis ganti dengan Database Transformers 2026 (2.700 pegawai)
         if (Array.isArray(parsed) && parsed.length > 50) {
           return parsed;
         }
@@ -110,13 +113,6 @@ export function App() {
     }
     return DEFAULT_MASTER_PEGAWAI;
   });
-
-  // Pengatur Ukuran Huruf
-  // Layar Pengantar (Welcome Screen) & Proteksi Bot Honeypot
-  const [isStarted, setIsStarted] = useState<boolean>(false);
-  const [honeypot, setHoneypot] = useState<string>('');
-
-  const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('large');
 
   // Webhook Google Sheets (Mengambil dari LocalStorage, Vercel Env, atau Constants)
   const [scriptUrl, setScriptUrl] = useState<string>(() => {
@@ -147,7 +143,7 @@ export function App() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [currentStep, isSubmitted, isAdminPath]);
+  }, [currentStep, isSubmitted, isAdminPath, isStarted]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -193,7 +189,7 @@ export function App() {
     setErrorMessage('');
     if (currentStep === 1) {
       if (!formData.nama.trim()) {
-        setErrorMessage('Mohon lengkapi Nama Lengkap Bapak/Ibu (atau ketik NIP untuk auto-fill).');
+        setErrorMessage('Mohon lengkapi Nama Lengkap Bapak/Ibu (atau ketik 18 digit NIP untuk auto-fill).');
         return false;
       }
       if (!formData.unitKerja) {
@@ -285,7 +281,7 @@ export function App() {
   };
 
   const handleSubmit = async () => {
-    // 1. Proteksi Anti-Bot: Honeypot trap check
+    // 1. Proteksi Anti-Bot Honeypot
     if (honeypot && honeypot.trim() !== '') {
       console.warn('Bot submission blocked via honeypot.');
       setIsSubmitting(false);
@@ -297,7 +293,7 @@ export function App() {
     setIsSubmitting(true);
     setErrorMessage('');
 
-    // 2. Sanitasi Input Teks dari Potensi XSS / Karakter Berbahaya
+    // 2. Sanitasi Input Teks dari Potensi XSS
     const sanitizeText = (str: string) => (str ? str.replace(/[<>]/g, '').trim() : '');
     const sanitizedData: SurveyData = {
       ...formData,
@@ -370,22 +366,13 @@ export function App() {
     setCurrentStep(1);
   };
 
-  const fontSizeClass =
-    fontSize === 'xlarge'
-      ? 'text-lg sm:text-xl'
-      : fontSize === 'large'
-      ? 'text-base sm:text-lg'
-      : 'text-sm sm:text-base';
-
   return (
-    <div className={`min-h-screen flex flex-col bg-slate-100/90 text-slate-900 ${fontSizeClass}`}>
-      {/* HEADER: Kunci di 100% saat isSubmitted = true (Tahap 8/7 tidak dihitung, tetap 100%) */}
+    <div className="min-h-screen flex flex-col bg-slate-100/90 text-slate-900 text-sm sm:text-base">
+      {/* HEADER RESMI: Dilengkapi Logo BKPSDM Majalengka & Transformers */}
       <Header
         currentStep={currentStep}
         totalSteps={STEP_TITLES.length}
         stepTitles={STEP_TITLES}
-        fontSize={fontSize}
-        onFontSizeChange={setFontSize}
         isCompleted={isSubmitted}
         isAdminView={isAdminPath}
         isWelcomeView={!isAdminPath && !isStarted}
@@ -434,9 +421,14 @@ export function App() {
               onCancel={navigateToSurvey}
             />
           )
+        ) : !isStarted ? (
+          /* ========================================================================= */
+          /* 2. HALAMAN PENGANTAR (WELCOME SCREEN) RESMI TRANSFORMERS 2026            */
+          /* ========================================================================= */
+          <WelcomeScreen onStart={() => setIsStarted(true)} />
         ) : isSubmitted && scoringResult ? (
           /* ========================================================================= */
-          /* 2. HASIL ASESMEN RESPONDEN (SELESAI 100%)                                 */
+          /* 3. HASIL ASESMEN RESPONDEN (SELESAI 100%)                                 */
           /* ========================================================================= */
           <ResultCard
             result={scoringResult}
@@ -447,9 +439,23 @@ export function App() {
           />
         ) : (
           /* ========================================================================= */
-          /* 3. FORMULIR KUESIONER BERSIH UNTUK RESPONDEN DENGAN AUTO-FILL NIP         */
+          /* 4. FORMULIR KUESIONER BERSIH UNTUK RESPONDEN DENGAN AUTO-FILL NIP         */
           /* ========================================================================= */
           <div className="bg-white rounded-3xl border-2 border-slate-200 shadow-md p-6 sm:p-8 space-y-6">
+            {/* Perangkap Bot Tersembunyi (Anti-Bot Honeypot) */}
+            <div className="opacity-0 absolute -z-50 select-none pointer-events-none h-0 w-0 overflow-hidden" aria-hidden="true">
+              <label htmlFor="user_system_code">Verification Code</label>
+              <input
+                id="user_system_code"
+                type="text"
+                name="user_system_code"
+                tabIndex={-1}
+                autoComplete="off"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+              />
+            </div>
+
             {/* Pesan Kesalahan Validasi */}
             {errorMessage && (
               <div className="p-4 rounded-2xl bg-rose-50 border-2 border-rose-300 text-rose-900 text-sm sm:text-base font-bold flex items-center gap-3">

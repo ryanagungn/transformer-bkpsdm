@@ -1,12 +1,10 @@
 import React from 'react';
-import { Type, Shield, CheckCircle2 } from 'lucide-react';
+import { Shield } from 'lucide-react';
 
 interface HeaderProps {
   currentStep: number;
   totalSteps: number;
   stepTitles: string[];
-  fontSize: 'normal' | 'large' | 'xlarge';
-  onFontSizeChange: (size: 'normal' | 'large' | 'xlarge') => void;
   isCompleted?: boolean;
   isAdminView?: boolean;
   isWelcomeView?: boolean;
@@ -17,14 +15,11 @@ export const Header: React.FC<HeaderProps> = ({
   currentStep,
   totalSteps,
   stepTitles,
-  fontSize,
-  onFontSizeChange,
   isCompleted = false,
   isAdminView = false,
   isWelcomeView = false,
   onToggleAdminView
 }) => {
-  // Hitung persentase: jika sudah selesai, kunci tepat di 100%
   const progressPercent = isCompleted ? 100 : Math.min(100, Math.round((currentStep / totalSteps) * 100));
 
   return (
@@ -70,14 +65,13 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Sisi Kanan: Pengatur Ukuran Huruf & Tombol Beralih Mode Admin */}
-          <div className="flex items-center gap-2.5 self-end md:self-auto shrink-0">
-            {/* Tombol Akses Admin */}
-            {onToggleAdminView && (
+          {/* Sisi Kanan: Tombol Akses Admin */}
+          {onToggleAdminView && (
+            <div className="self-end md:self-auto shrink-0">
               <button
                 type="button"
                 onClick={onToggleAdminView}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
                   isAdminView
                     ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 border-amber-400 shadow-xs font-black'
                     : 'bg-white/10 hover:bg-white/20 text-blue-100 border-white/20'
@@ -87,53 +81,8 @@ export const Header: React.FC<HeaderProps> = ({
                 <Shield className="w-3.5 h-3.5" />
                 <span>{isAdminView ? 'Ke Formulir Survei' : 'Portal Admin'}</span>
               </button>
-            )}
-
-            {/* Pengatur Ukuran Huruf yang Bekerja Nyata Secara Global */}
-            <div className="flex items-center gap-1.5 bg-blue-900/80 px-2.5 py-1.5 rounded-xl border border-blue-700/60 shrink-0">
-              <span className="text-xs font-bold text-blue-200 hidden sm:flex items-center gap-1">
-                <Type className="w-3.5 h-3.5 text-amber-300" /> Ukuran Teks:
-              </span>
-              <div className="flex items-center gap-1 bg-black/40 p-0.5 rounded-lg border border-blue-800">
-                <button
-                  type="button"
-                  onClick={() => onFontSizeChange('normal')}
-                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
-                    fontSize === 'normal'
-                      ? 'bg-blue-600 text-white shadow-xs font-black ring-1 ring-white/50'
-                      : 'text-blue-200 hover:text-white'
-                  }`}
-                  title="Ukuran Tulisan Standar (100%)"
-                >
-                  Normal
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onFontSizeChange('large')}
-                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
-                    fontSize === 'large'
-                      ? 'bg-blue-600 text-white shadow-xs font-black ring-1 ring-amber-400'
-                      : 'text-blue-200 hover:text-white'
-                  }`}
-                  title="Ukuran Tulisan Lebih Besar (+15%)"
-                >
-                  Besar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onFontSizeChange('xlarge')}
-                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
-                    fontSize === 'xlarge'
-                      ? 'bg-amber-500 text-slate-950 shadow-xs font-black ring-1 ring-amber-300'
-                      : 'text-amber-200 hover:text-white'
-                  }`}
-                  title="Ukuran Tulisan Ekstra Besar (+35% untuk kenyamanan membaca)"
-                >
-                  A++ Ekstra
-                </button>
-              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 

@@ -1,9 +1,5 @@
 @import "tailwindcss";
 
-html {
-  transition: font-size 0.2s ease-in-out;
-}
-
 @layer base {
   /* Smooth animations and comfortable readability for seniors/ASN */
   input[type="text"],
