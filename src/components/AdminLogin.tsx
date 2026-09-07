@@ -75,13 +75,21 @@ export const AdminLogin: React.FC<Props> = ({ onSuccess, onCancel }) => {
       <div className="bg-white rounded-3xl border-2 border-slate-200 shadow-xl max-w-md w-full p-6 sm:p-8 space-y-6">
         {/* Logo & Judul */}
         <div className="text-center space-y-3">
-          <div className="w-16 h-16 rounded-2xl bg-blue-950 p-2 mx-auto flex items-center justify-center shadow-md border-2 border-amber-400">
-            <img src="/logo_transformer.png" alt="Logo" className="w-full h-full object-contain" />
+          <div className="flex items-center justify-center gap-3">
+            <div className="bg-white rounded-xl px-2.5 py-1.5 shadow-md border border-slate-200">
+              <img src="/logo_bkpsdm.png" alt="Logo BKPSDM Kab. Majalengka" className="h-8 w-auto object-contain" />
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-blue-950 p-1.5 flex items-center justify-center shadow-md border-2 border-amber-400">
+              <img src="/logo_transformer.png" alt="Logo Transformers" className="w-full h-full object-contain" />
+            </div>
           </div>
           <div>
-            <h2 className="text-2xl font-black text-slate-900">Portal Administrator</h2>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Badan Kepegawaian dan Pengembangan SDM (BKPSDM)
+            <span className="text-[11px] font-black uppercase tracking-wider text-amber-600 block">
+              Pemerintah Daerah Kabupaten Majalengka
+            </span>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5">Portal Administrator</h2>
+            <p className="text-xs text-slate-500 mt-0.5 font-medium">
+              BKPSDM Kab. Majalengka • Program Transformers 2026
             </p>
           </div>
         </div>

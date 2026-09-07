@@ -15,6 +15,7 @@ import { ResultCard } from './components/ResultCard';
 import { AdminPortal } from './components/AdminPortal';
 import { AdminLogin } from './components/AdminLogin';
 import { WelcomeScreen } from './components/WelcomeScreen';
+import { DEFAULT_GAS_URL } from './config/constants';
 import confetti from 'canvas-confetti';
 import {
   ChevronLeft,
@@ -117,9 +118,14 @@ export function App() {
 
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('large');
 
-  // Webhook Google Sheets
+  // Webhook Google Sheets (Mengambil dari LocalStorage, Vercel Env, atau Constants)
   const [scriptUrl, setScriptUrl] = useState<string>(() => {
-    return localStorage.getItem('bkpsdm_gas_url') || '';
+    return (
+      localStorage.getItem('bkpsdm_gas_url') ||
+      (import.meta as any).env?.VITE_GAS_URL ||
+      DEFAULT_GAS_URL ||
+      ''
+    );
   });
   const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'synced' | 'local_only' | 'error'>('idle');
   const [syncMessage, setSyncMessage] = useState<string>('');
@@ -516,22 +522,30 @@ export function App() {
         )}
       </main>
 
-      {/* FOOTER RESMI */}
-      <footer className="bg-white border-t-2 border-slate-200 py-5 px-6 text-center text-xs sm:text-sm text-slate-600 mt-auto">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2 justify-center sm:justify-start">
-            <img src="/logo_transformer.png" alt="Logo" className="w-5 h-5 object-contain" />
-            <span className="font-semibold text-slate-700">
-              © 2026 Badan Kepegawaian dan Pengembangan Sumber Daya Manusia (BKPSDM).
-            </span>
+      {/* FOOTER RESMI DUA LOGO & IDENTITAS MAJALENGKA */}
+      <footer className="bg-white border-t-2 border-slate-200 py-5 px-6 text-xs sm:text-sm text-slate-600 mt-auto">
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-3 justify-center sm:justify-start">
+            <div className="bg-white rounded-lg p-1 border border-slate-200 shadow-2xs">
+              <img src="/logo_bkpsdm.png" alt="BKPSDM Kab. Majalengka" className="h-6 sm:h-7 w-auto object-contain" />
+            </div>
+            <div className="h-5 w-px bg-slate-300 hidden sm:block" />
+            <div className="flex items-center gap-1.5">
+              <img src="/logo_transformer.png" alt="Logo Transformers" className="w-5 h-5 object-contain" />
+              <span className="font-extrabold text-blue-950">Transformers 2026</span>
+            </div>
+            <div className="text-center sm:text-left">
+              <span className="font-bold text-slate-800 block text-xs">BKPSDM Kab. Majalengka</span>
+              <span className="text-[11px] text-slate-500">Pemerintah Daerah Kabupaten Majalengka</span>
+            </div>
           </div>
 
           {/* Tautan Discreet ke /admin dengan Password */}
           <button
             type="button"
             onClick={navigateToAdmin}
-            className="text-slate-400 hover:text-blue-900 font-semibold inline-flex items-center gap-1.5 cursor-pointer text-xs transition"
-            title="Khusus Pengelola BKPSDM"
+            className="text-slate-400 hover:text-blue-900 font-semibold inline-flex items-center gap-1.5 cursor-pointer text-xs transition self-center sm:self-auto"
+            title="Khusus Pengelola BKPSDM Kab. Majalengka"
           >
             <Lock className="w-3.5 h-3.5" />
             <span>Portal Admin</span>

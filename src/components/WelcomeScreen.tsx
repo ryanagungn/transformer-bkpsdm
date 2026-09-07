@@ -16,16 +16,41 @@ export const WelcomeScreen: React.FC<Props> = ({ onStart, totalPegawai = 2700 })
           <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -left-10 -top-10 w-64 h-64 bg-blue-400/10 rounded-full blur-3xl pointer-events-none" />
 
-          <div className="relative z-10 flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
-            {/* Logo Transformers */}
-            <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-white/10 p-3 backdrop-blur-md border-2 border-amber-400/80 shadow-2xl flex items-center justify-center shrink-0">
-              <img
-                src="/logo_transformer.png"
-                alt="Logo Transformers BKPSDM"
-                className="w-full h-full object-contain drop-shadow-md"
-              />
+          <div className="relative z-10 space-y-6">
+            {/* Header Instansi & Logo Berdampingan */}
+            <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-blue-800/80">
+              <div className="flex flex-wrap items-center gap-4">
+                {/* Logo BKPSDM Majalengka */}
+                <div className="bg-white rounded-2xl px-3.5 py-2 shadow-lg border border-slate-200">
+                  <img
+                    src="/logo_bkpsdm.png"
+                    alt="Logo BKPSDM Kab. Majalengka"
+                    className="h-10 sm:h-12 w-auto object-contain"
+                  />
+                </div>
+
+                {/* Logo Transformers */}
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/10 p-2 backdrop-blur-md border-2 border-amber-400/80 shadow-xl flex items-center justify-center shrink-0">
+                  <img
+                    src="/logo_transformer.png"
+                    alt="Logo Transformers BKPSDM"
+                    className="w-full h-full object-contain drop-shadow-md"
+                  />
+                </div>
+              </div>
+
+              {/* Lencana Identitas Pemkab Majalengka */}
+              <div className="text-left sm:text-right">
+                <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-amber-300 block">
+                  Pemerintah Daerah Kabupaten Majalengka
+                </span>
+                <span className="text-xs text-blue-200 font-bold block mt-0.5">
+                  BKPSDM Kab. Majalengka
+                </span>
+              </div>
             </div>
 
+            {/* Judul Utama */}
             <div className="space-y-2">
               <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500 text-slate-950 text-xs font-black uppercase tracking-wider shadow-sm">
                 <Sparkles className="w-3.5 h-3.5" /> Program Transformers 2026
@@ -33,7 +58,7 @@ export const WelcomeScreen: React.FC<Props> = ({ onStart, totalPegawai = 2700 })
               <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">
                 Survei Peminatan & Kesiapan Berwirausaha ASN Pra-Pensiun
               </h1>
-              <p className="text-sm sm:text-base text-blue-100 font-medium max-w-2xl">
+              <p className="text-sm sm:text-base text-blue-100 font-medium max-w-3xl">
                 Badan Kepegawaian dan Pengembangan Sumber Daya Manusia (BKPSDM) Kabupaten Majalengka
               </p>
             </div>
@@ -46,13 +71,13 @@ export const WelcomeScreen: React.FC<Props> = ({ onStart, totalPegawai = 2700 })
           <div className="space-y-3">
             <h2 className="text-lg sm:text-xl font-black text-blue-950 flex items-center gap-2">
               <FileText className="w-5 h-5 text-amber-600" />
-              Tentang Survei & Program Pendampingan
+              Tentang Survei & Program Pembekalan Wirausaha
             </h2>
             <p className="text-slate-700 text-base sm:text-lg leading-relaxed">
-              Survei ini diselenggarakan oleh <strong>BKPSDM Kabupaten Majalengka</strong> dalam rangka memetakan aspirasi, potensi keahlian, dan kesiapan berwirausaha bagi Bapak/Ibu ASN yang memasuki masa purna tugas.
+              Survei ini diselenggarakan oleh <strong>BKPSDM Kab. Majalengka - Pemerintah Daerah Kabupaten Majalengka</strong> dalam rangka memetakan aspirasi, potensi keahlian, dan kesiapan berwirausaha bagi Bapak/Ibu ASN yang memasuki masa purna tugas.
             </p>
             <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
-              Hasil asesmen ini akan menjadi dasar penyusunan <strong>Program Inkubasi, Pelatihan Teknis Praktis, serta Fasilitasi Akses Permodalan & Kemitraan Usaha</strong> yang terarah dan berkelanjutan.
+              Hasil asesmen ini akan menjadi dasar penyusunan <strong>Program Inkubasi, Pelatihan Teknis Praktis, serta Fasilitasi Akses Permodalan & Kemitraan Usaha</strong> yang terarah dan berkelanjutan bagi ASN Kabupaten Majalengka.
             </p>
           </div>
 
@@ -77,7 +102,7 @@ export const WelcomeScreen: React.FC<Props> = ({ onStart, totalPegawai = 2700 })
               <div>
                 <h4 className="font-bold text-slate-900 text-sm sm:text-base">Auto-Fill NIP Cerdas</h4>
                 <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                  Cukup ketikkan NIP Bapak/Ibu di Tahap 1, kolom Nama, OPD, Jabatan, dan Rencana Pensiun otomatis terisi.
+                  Cukup ketikkan NIP Bapak/Ibu di Tahap 1, kolom Nama, OPD, Jabatan, dan Rencana Pensiun otomatis terisi ({totalPegawai.toLocaleString('id-ID')} data terintegrasi).
                 </p>
               </div>
             </div>
@@ -101,7 +126,7 @@ export const WelcomeScreen: React.FC<Props> = ({ onStart, totalPegawai = 2700 })
               <div>
                 <h4 className="font-bold text-slate-900 text-sm sm:text-base">Data Terlindungi & Resmi</h4>
                 <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                  Informasi bersifat kedinasan dan terproteksi, semata-mata digunakan untuk perencanaan program pembekalan.
+                  Informasi bersifat kedinasan dan terproteksi, semata-mata digunakan untuk perencanaan program pembekalan BKPSDM Kab. Majalengka.
                 </p>
               </div>
             </div>
@@ -119,7 +144,7 @@ export const WelcomeScreen: React.FC<Props> = ({ onStart, totalPegawai = 2700 })
             </button>
             <p className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              Terhubung dengan Database Transformers 2026 BKPSDM
+              Terhubung dengan Database Transformers 2026 BKPSDM Kab. Majalengka
             </p>
           </div>
         </div>
