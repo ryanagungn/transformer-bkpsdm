@@ -114,14 +114,13 @@ export function App() {
     return DEFAULT_MASTER_PEGAWAI;
   });
 
-  // Webhook Google Sheets (Mengambil dari LocalStorage, Vercel Env, atau Constants)
+  // Webhook Google Sheets (Mengambil dari LocalStorage jika ada, atau DEFAULT_GAS_URL resmi)
   const [scriptUrl, setScriptUrl] = useState<string>(() => {
-    return (
-      localStorage.getItem('bkpsdm_gas_url') ||
-      (import.meta as any).env?.VITE_GAS_URL ||
-      DEFAULT_GAS_URL ||
-      ''
-    );
+    const saved = localStorage.getItem('bkpsdm_gas_url');
+    if (saved && saved.trim() !== '') {
+      return saved;
+    }
+    return DEFAULT_GAS_URL;
   });
   const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'synced' | 'local_only' | 'error'>('idle');
   const [syncMessage, setSyncMessage] = useState<string>('');
