@@ -491,7 +491,17 @@ export function App() {
                   <button
                     type="button"
                     onClick={handleNext}
-                    className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 rounded-2xl bg-blue-900 hover:bg-blue-950 text-white font-black text-base sm:text-lg shadow-md transition duration-150 cursor-pointer"
+                    disabled={currentStep === 1 && (!formData.nip || !formData.nama.trim())}
+                    className={`w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-black text-base sm:text-lg shadow-md transition duration-150 ${
+                      currentStep === 1 && (!formData.nip || !formData.nama.trim())
+                        ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed'
+                        : 'bg-blue-900 hover:bg-blue-950 text-white cursor-pointer'
+                    }`}
+                    title={
+                      currentStep === 1 && (!formData.nip || !formData.nama.trim())
+                        ? 'Wajib memasukkan 18 digit NIP yang terdaftar di Database Transformers 2026 untuk melanjutkan'
+                        : 'Lanjut ke Tahap Berikutnya'
+                    }
                   >
                     Lanjut ke Tahap Berikutnya
                     <ChevronRight className="w-5 h-5 stroke-[3]" />
