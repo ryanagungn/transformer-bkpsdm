@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SurveyData } from '../types/survey';
 import { MasterPegawai } from '../types/pegawai';
 import { OPD_LIST, TAHUN_PENSIUN_LIST, PENDIDIKAN_LIST, DOMISILI_LIST } from '../data/surveyQuestions';
-import { User, Check, Sparkles, CheckCircle2, Search } from 'lucide-react';
+import { User, Check, Sparkles, CheckCircle2, Search, Lock } from 'lucide-react';
 
 interface Props {
   data: SurveyData;
@@ -125,33 +125,53 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
           )}
         </div>
 
-        {/* Nama Lengkap */}
+        {/* Nama Lengkap (Terkunci jika auto-fill dari NIP aktif) */}
         <div className="space-y-2 md:col-span-2">
-          <label className="block text-base font-bold text-slate-900">
-            2. Nama Lengkap & Gelar <span className="text-rose-600 font-black">*</span>
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="block text-base font-bold text-slate-900">
+              2. Nama Lengkap & Gelar <span className="text-rose-600 font-black">*</span>
+            </label>
+            {matchFound && (
+              <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
+                <Lock className="w-3 h-3 text-slate-500" /> Terkunci otomatis dari NIP
+              </span>
+            )}
+          </div>
           <input
             type="text"
             required
+            disabled={!!matchFound}
             placeholder="Contoh: Drs. H. Ahmad Sudirman, M.Si."
             value={data.nama}
             onChange={(e) => onChange({ nama: e.target.value })}
-            className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 font-medium shadow-2xs ${
-              matchFound ? 'bg-emerald-50/40 border-emerald-300' : 'bg-white'
+            className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 font-medium shadow-2xs transition ${
+              matchFound
+                ? 'bg-slate-100 border-slate-300 text-slate-700 font-bold cursor-not-allowed select-none'
+                : 'bg-white border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 text-slate-900'
             }`}
           />
         </div>
 
-        {/* Instansi / Unit Kerja */}
+        {/* Instansi / Unit Kerja (Terkunci jika auto-fill dari NIP aktif) */}
         <div className="space-y-2 md:col-span-2">
-          <label className="block text-base font-bold text-slate-900">
-            3. Perangkat Daerah / Instansi / Unit Kerja (OPD) <span className="text-rose-600 font-black">*</span>
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="block text-base font-bold text-slate-900">
+              3. Perangkat Daerah / Instansi / Unit Kerja (OPD) <span className="text-rose-600 font-black">*</span>
+            </label>
+            {matchFound && (
+              <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
+                <Lock className="w-3 h-3 text-slate-500" /> Terkunci otomatis dari NIP
+              </span>
+            )}
+          </div>
           <select
+            disabled={!!matchFound}
             value={data.unitKerja}
             onChange={(e) => onChange({ unitKerja: e.target.value })}
-            className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 font-semibold text-slate-800 shadow-2xs cursor-pointer ${
-              matchFound ? 'bg-emerald-50/40 border-emerald-300' : 'bg-white'
+            className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 font-semibold shadow-2xs transition ${
+              matchFound
+                ? 'bg-slate-100 border-slate-300 text-slate-700 font-bold cursor-not-allowed opacity-90'
+                : 'bg-white border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 text-slate-800 cursor-pointer'
             }`}
           >
             <option value="">-- Pilih Perangkat Daerah / Unit Kerja --</option>
@@ -163,47 +183,81 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
           </select>
         </div>
 
-        {/* Jabatan Terakhir */}
+        {/* Jabatan Terakhir (Terkunci jika auto-fill dari NIP aktif) */}
         <div className="space-y-2">
-          <label className="block text-base font-bold text-slate-900">
-            4. Jabatan Terakhir <span className="text-rose-600 font-black">*</span>
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="block text-base font-bold text-slate-900">
+              4. Jabatan Terakhir <span className="text-rose-600 font-black">*</span>
+            </label>
+            {matchFound && (
+              <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
+                <Lock className="w-3 h-3 text-slate-500" /> Terkunci
+              </span>
+            )}
+          </div>
           <input
             type="text"
+            disabled={!!matchFound}
             placeholder="Contoh: Kepala Bidang / Guru Madya / Staf"
             value={data.jabatan}
             onChange={(e) => onChange({ jabatan: e.target.value })}
-            className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 font-medium shadow-2xs ${
-              matchFound ? 'bg-emerald-50/40 border-emerald-300' : 'bg-white'
+            className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 font-medium shadow-2xs transition ${
+              matchFound
+                ? 'bg-slate-100 border-slate-300 text-slate-700 font-bold cursor-not-allowed select-none'
+                : 'bg-white border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 text-slate-900'
             }`}
           />
         </div>
 
-        {/* Usia */}
+        {/* Usia (Terkunci jika auto-fill dari NIP aktif) */}
         <div className="space-y-2">
-          <label className="block text-base font-bold text-slate-900">
-            5. Usia Saat Ini (Tahun) <span className="text-rose-600 font-black">*</span>
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="block text-base font-bold text-slate-900">
+              5. Usia Saat Ini (Tahun) <span className="text-rose-600 font-black">*</span>
+            </label>
+            {matchFound && (
+              <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
+                <Lock className="w-3 h-3 text-slate-500" /> Terkunci
+              </span>
+            )}
+          </div>
           <input
             type="number"
             min="40"
             max="75"
+            disabled={!!matchFound}
             placeholder="Contoh: 57"
             value={data.usia}
             onChange={(e) => onChange({ usia: e.target.value })}
-            className="w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 bg-white font-medium shadow-2xs"
+            className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 font-medium shadow-2xs transition ${
+              matchFound
+                ? 'bg-slate-100 border-slate-300 text-slate-700 font-bold cursor-not-allowed select-none'
+                : 'bg-white border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 text-slate-900'
+            }`}
           />
         </div>
 
-        {/* Tahun Pensiun */}
+        {/* Tahun Pensiun (Terkunci jika auto-fill dari NIP aktif) */}
         <div className="space-y-2 md:col-span-2">
-          <label className="block text-base font-bold text-slate-900">
-            6. Tahun Perkiraan Mulai Purna Tugas <span className="text-rose-600 font-black">*</span>
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="block text-base font-bold text-slate-900">
+              6. Tahun Perkiraan Mulai Purna Tugas <span className="text-rose-600 font-black">*</span>
+            </label>
+            {matchFound && (
+              <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
+                <Lock className="w-3 h-3 text-slate-500" /> Terkunci otomatis dari NIP
+              </span>
+            )}
+          </div>
           <select
+            disabled={!!matchFound}
             value={data.tahunPensiun}
             onChange={(e) => onChange({ tahunPensiun: e.target.value })}
-            className="w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 bg-white font-semibold text-slate-800 shadow-2xs cursor-pointer"
+            className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 font-semibold shadow-2xs transition ${
+              matchFound
+                ? 'bg-slate-100 border-slate-300 text-slate-700 font-bold cursor-not-allowed opacity-90'
+                : 'bg-white border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 text-slate-800 cursor-pointer'
+            }`}
           >
             <option value="">-- Pilih Tahun Pensiun --</option>
             {TAHUN_PENSIUN_LIST.map((th) => (
