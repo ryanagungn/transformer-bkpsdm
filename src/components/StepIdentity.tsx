@@ -13,15 +13,17 @@ interface Props {
 export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = [] }) => {
   const [nipSearch, setNipSearch] = useState(data.nip || '');
   const [matchFound, setMatchFound] = useState<MasterPegawai | null>(null);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [notFoundNotice, setNotFoundNotice] = useState(false);
 
-  // Cari di database master pegawai saat NIP berubah
+  // Verifikasi KETAT: Hanya cocokkan jika 18 DIGIT NIP LENGKAP dimasukkan (Exact Match)
+  // Tidak ada dropdown / saran nama orang lain agar kerahasiaan data terjaga 100%
   useEffect(() => {
-    const clean = nipSearch.trim();
-    if (clean.length >= 8) {
-      const found = masterPegawai.find((p) => p.nip.replace(/\s+/g, '') === clean.replace(/\s+/g, ''));
+    const clean = nipSearch.replace(/\D/g, '').trim();
+    if (clean.length === 18) {
+      const found = masterPegawai.find((p) => p.nip.replace(/\D/g, '') === clean);
       if (found) {
         setMatchFound(found);
+        setNotFoundNotice(false);
         onChange({
           nip: found.nip,
           nama: found.nama,
@@ -33,36 +35,13 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
         });
       } else {
         setMatchFound(null);
+        setNotFoundNotice(true);
       }
     } else {
       setMatchFound(null);
+      setNotFoundNotice(false);
     }
   }, [nipSearch, masterPegawai]);
-
-  const handleSelectPegawai = (pegawai: MasterPegawai) => {
-    setNipSearch(pegawai.nip);
-    setMatchFound(pegawai);
-    setShowSuggestions(false);
-    onChange({
-      nip: pegawai.nip,
-      nama: pegawai.nama,
-      unitKerja: pegawai.unitKerja,
-      jabatan: pegawai.jabatan,
-      tahunPensiun: pegawai.tahunPensiun || data.tahunPensiun,
-      usia: pegawai.usia || data.usia,
-      pendidikan: pegawai.pendidikan || data.pendidikan
-    });
-  };
-
-  const suggestions = nipSearch.trim()
-    ? masterPegawai
-        .filter(
-          (p) =>
-            p.nip.includes(nipSearch.trim()) ||
-            p.nama.toLowerCase().includes(nipSearch.trim().toLowerCase())
-        )
-        .slice(0, 5)
-    : [];
 
   return (
     <div className="space-y-6">
@@ -101,47 +80,29 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
           <div className="relative">
             <input
               type="text"
-              placeholder="Ketik NIP Bapak/Ibu di sini (Contoh: 196810091990031001)..."
+              maxLength={18}
+              placeholder="Masukkan 18 digit NIP Anda (Contoh: 197108142014062001)..."
               value={nipSearch}
-              onFocus={() => setShowSuggestions(true)}
               onChange={(e) => {
-                setNipSearch(e.target.value);
-                onChange({ nip: e.target.value });
+                const val = e.target.value.replace(/\D/g, ''); // Hanya terima angka
+                setNipSearch(val);
+                onChange({ nip: val });
               }}
-              className="w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 border-slate-300 focus:border-blue-800 focus:ring-4 focus:ring-blue-500/20 bg-white font-mono font-bold text-blue-950 shadow-2xs"
+              className="w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 border-slate-300 focus:border-blue-800 focus:ring-4 focus:ring-blue-500/20 bg-white font-mono font-bold text-blue-950 shadow-2xs tracking-wider"
             />
             {matchFound && (
-              <div className="absolute right-3.5 top-3.5 flex items-center gap-1 text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg text-xs font-black">
+              <div className="absolute right-3.5 top-3.5 flex items-center gap-1.5 text-emerald-800 bg-emerald-100 border border-emerald-300 px-3 py-1 rounded-lg text-xs font-black">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Terverifikasi</span>
+                <span>NIP Terverifikasi</span>
               </div>
             )}
           </div>
 
-          {/* Rekomendasi / Saran NIP jika belum hafal 18 digit penuh */}
-          {showSuggestions && suggestions.length > 0 && !matchFound && (
-            <div className="absolute z-20 w-full mt-1 bg-white border-2 border-blue-300 rounded-2xl shadow-xl overflow-hidden divide-y divide-slate-100">
-              <div className="px-4 py-2 bg-blue-50 text-xs font-bold text-blue-950 flex items-center justify-between">
-                <span>Pilih Pegawai yang Cocok (Klik untuk Auto-Fill):</span>
-                <span className="text-slate-500 font-normal">Database Transformers 2026</span>
-              </div>
-              {suggestions.map((pegawai) => (
-                <button
-                  type="button"
-                  key={pegawai.nip}
-                  onClick={() => handleSelectPegawai(pegawai)}
-                  className="w-full px-4 py-3 text-left hover:bg-blue-50/80 transition flex items-center justify-between text-xs sm:text-sm cursor-pointer"
-                >
-                  <div>
-                    <span className="font-bold text-slate-900 block">{pegawai.nama}</span>
-                    <span className="font-mono text-xs text-blue-900">{pegawai.nip}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs font-semibold text-slate-700 block max-w-[240px] truncate">{pegawai.unitKerja}</span>
-                    <span className="text-xs text-slate-500 block max-w-[240px] truncate">{pegawai.jabatan}</span>
-                  </div>
-                </button>
-              ))}
+          {/* Notifikasi Ramah jika 18 digit terisi tapi tidak ada di database */}
+          {notFoundNotice && nipSearch.length === 18 && (
+            <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs sm:text-sm font-medium flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0" />
+              <span>NIP tidak terdaftar di database Transformers 2026. Bapak/Ibu dapat mengisi Nama dan Perangkat Daerah secara manual di bawah ini.</span>
             </div>
           )}
 
