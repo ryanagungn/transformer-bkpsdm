@@ -14,6 +14,7 @@ import { StepClosing } from './components/StepClosing';
 import { ResultCard } from './components/ResultCard';
 import { AdminPortal } from './components/AdminPortal';
 import { AdminLogin } from './components/AdminLogin';
+import { WelcomeScreen } from './components/WelcomeScreen';
 import confetti from 'canvas-confetti';
 import {
   ChevronLeft,
@@ -110,6 +111,10 @@ export function App() {
   });
 
   // Pengatur Ukuran Huruf
+  // Layar Pengantar (Welcome Screen) & Proteksi Bot Honeypot
+  const [isStarted, setIsStarted] = useState<boolean>(false);
+  const [honeypot, setHoneypot] = useState<string>('');
+
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('large');
 
   // Webhook Google Sheets
@@ -274,18 +279,35 @@ export function App() {
   };
 
   const handleSubmit = async () => {
+    // 1. Proteksi Anti-Bot: Honeypot trap check
+    if (honeypot && honeypot.trim() !== '') {
+      console.warn('Bot submission blocked via honeypot.');
+      setIsSubmitting(false);
+      return;
+    }
+
     if (!validateCurrentStep()) return;
 
     setIsSubmitting(true);
     setErrorMessage('');
 
-    const scoreResult = calculateSurveyScore(formData);
+    // 2. Sanitasi Input Teks dari Potensi XSS / Karakter Berbahaya
+    const sanitizeText = (str: string) => (str ? str.replace(/[<>]/g, '').trim() : '');
+    const sanitizedData: SurveyData = {
+      ...formData,
+      nama: sanitizeText(formData.nama),
+      jabatan: sanitizeText(formData.jabatan),
+      alasanPrioritas: sanitizeText(formData.alasanPrioritas),
+      harapanBKPSDM: sanitizeText(formData.harapanBKPSDM)
+    };
+
+    const scoreResult = calculateSurveyScore(sanitizedData);
     setScoringResult(scoreResult);
 
     const newRecord = {
       id: `RESP-${Date.now()}`,
       timestamp: new Date().toLocaleString('id-ID'),
-      data: formData,
+      data: sanitizedData,
       score: scoreResult
     };
 
@@ -298,7 +320,7 @@ export function App() {
     }
 
     const payload = {
-      ...formData,
+      ...sanitizedData,
       scoring: scoreResult,
       submittedAt: new Date().toISOString()
     };
@@ -338,6 +360,7 @@ export function App() {
     setFormData(INITIAL_DATA);
     setScoringResult(null);
     setIsSubmitted(false);
+    setIsStarted(false);
     setCurrentStep(1);
   };
 
@@ -359,6 +382,7 @@ export function App() {
         onFontSizeChange={setFontSize}
         isCompleted={isSubmitted}
         isAdminView={isAdminPath}
+        isWelcomeView={!isAdminPath && !isStarted}
         onToggleAdminView={isAdminPath ? navigateToSurvey : undefined}
       />
 
@@ -394,6 +418,7 @@ export function App() {
                     jabatan: found.jabatan
                   });
                 }
+                setIsStarted(true);
                 navigateToSurvey();
               }}
             />

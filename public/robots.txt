@@ -1,0 +1,6 @@
+# robots.txt for BKPSDM Transformers 2026 Portal
+User-agent: *
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /api/
+Allow: /

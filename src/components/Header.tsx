@@ -9,6 +9,7 @@ interface HeaderProps {
   onFontSizeChange: (size: 'normal' | 'large' | 'xlarge') => void;
   isCompleted?: boolean;
   isAdminView?: boolean;
+  isWelcomeView?: boolean;
   onToggleAdminView?: () => void;
 }
 
@@ -20,6 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
   onFontSizeChange,
   isCompleted = false,
   isAdminView = false,
+  isWelcomeView = false,
   onToggleAdminView
 }) => {
   // Hitung persentase: jika sudah selesai, kunci tepat di 100%
@@ -119,8 +121,8 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Progress & Step Indicator (Hanya muncul jika bukan mode Admin) */}
-      {!isAdminView && (
+      {/* Progress & Step Indicator (Hanya muncul jika bukan mode Admin dan bukan Halaman Pengantar) */}
+      {!isAdminView && !isWelcomeView && (
         <div className="max-w-5xl mx-auto px-4 py-3 bg-blue-50/60">
           <div className="flex items-center justify-between gap-2 mb-2">
             <div className="flex items-center gap-2.5">

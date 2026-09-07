@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScoringResult, SurveyData } from '../types/survey';
+import { downloadSingleSurveyExcel } from '../utils/excelBackup';
 import {
   Printer,
   RotateCcw,
@@ -7,7 +8,9 @@ import {
   Check,
   CheckCircle2,
   ThumbsUp,
-  FileText
+  FileText,
+  Download,
+  AlertCircle
 } from 'lucide-react';
 
 interface Props {
@@ -109,13 +112,25 @@ export const ResultCard: React.FC<Props> = ({
         </div>
 
         {/* Status Pengiriman Data (Bersih untuk Responden) */}
-        <div className="px-6 sm:px-8 py-3 bg-slate-100 border-b border-slate-200 flex items-center justify-between text-xs sm:text-sm">
+        <div className="px-6 sm:px-8 py-3 bg-slate-100 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs sm:text-sm">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
-            <span className="font-bold text-slate-800">Status Data:</span>
-            <span className="inline-flex items-center gap-1 text-emerald-900 font-bold bg-emerald-100 px-2.5 py-0.5 rounded-md">
-              ✓ Data Survei Berhasil Diterima oleh Sistem BKPSDM
-            </span>
+            {syncStatus === 'synced' ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span className="font-bold text-slate-800">Status Data:</span>
+                <span className="inline-flex items-center gap-1 text-emerald-900 font-bold bg-emerald-100 px-2.5 py-0.5 rounded-md">
+                  ✓ Data Survei Berhasil Diterima oleh Spreadsheet Online BKPSDM
+                </span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-blue-700 shrink-0" />
+                <span className="font-bold text-slate-800">Status Data:</span>
+                <span className="inline-flex items-center gap-1 text-blue-900 font-bold bg-blue-100 px-2.5 py-0.5 rounded-md">
+                  ✓ Data Tersimpan Aman di Cadangan Sistem BKPSDM
+                </span>
+              </>
+            )}
           </div>
           <span className="text-xs text-slate-500 font-medium hidden sm:inline">
             Status: Selesai (100%)
@@ -139,24 +154,30 @@ export const ResultCard: React.FC<Props> = ({
                 <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mt-2">
                   {result.interpretation}
                 </h2>
-                <p className="text-base sm:text-lg text-blue-950 font-bold mt-1">
-                  Bidang Usaha Pilihan: <span className="underline decoration-amber-500 decoration-4">{data.prioritasUtama || 'Umum'}</span>
+                <p className="text-slate-600 font-medium text-sm sm:text-base mt-1">
+                  {badgeInfo.tagline}
                 </p>
               </div>
             </div>
+
+            <div className="text-center md:text-right bg-white/80 p-4 rounded-2xl border border-blue-100 shadow-2xs">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Tingkat Prioritas:</span>
+              <span className="text-xl sm:text-2xl font-black text-blue-950 block mt-0.5">
+                {result.priorityLevel}
+              </span>
+              <span className="text-xs font-semibold text-emerald-700 mt-1 block">
+                ✓ Masuk Database Program BKPSDM
+              </span>
+            </div>
           </div>
 
-          {/* Rekomendasi Program BKPSDM */}
-          <div className="p-6 rounded-3xl bg-blue-900 text-white shadow-sm space-y-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center font-black shrink-0">
-                <ThumbsUp className="w-4 h-4" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-black text-white">
-                Rekomendasi Tindak Lanjut untuk Bapak/Ibu:
-              </h3>
-            </div>
-            <p className="text-base sm:text-lg text-blue-100 leading-relaxed pl-10 font-medium">
+          {/* Rekomendasi Program Pembekalan */}
+          <div className="p-6 rounded-3xl bg-amber-50/70 border-2 border-amber-300 space-y-2">
+            <h3 className="text-base sm:text-lg font-black text-amber-950 flex items-center gap-2">
+              <ThumbsUp className="w-5 h-5 text-amber-700" />
+              Rekomendasi Tindak Lanjut Program:
+            </h3>
+            <p className="text-sm sm:text-base text-amber-900 font-semibold leading-relaxed">
               {result.recommendation}
             </p>
           </div>
@@ -197,7 +218,7 @@ export const ResultCard: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Tombol Cetak / Selesai */}
+        {/* Tombol Cetak / Selesai / Unduh Excel */}
         <div className="px-6 sm:px-8 py-6 bg-slate-100 border-t-2 border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 print:hidden">
           <button
             type="button"
@@ -208,14 +229,27 @@ export const ResultCard: React.FC<Props> = ({
             Isi Formulir Baru
           </button>
 
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 rounded-2xl bg-blue-950 hover:bg-blue-900 text-white font-extrabold transition text-base sm:text-lg shadow-lg cursor-pointer"
-          >
-            <Printer className="w-6 h-6 text-amber-300" />
-            Cetak / Simpan Sebagai PDF
-          </button>
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            {/* Tombol Cadangan Excel */}
+            <button
+              type="button"
+              onClick={() => downloadSingleSurveyExcel(data, result)}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold transition text-base shadow-md cursor-pointer"
+              title="Unduh berkas Excel hasil survei ini sebagai arsip cadangan pribadi"
+            >
+              <Download className="w-5 h-5 text-emerald-200" />
+              Unduh Salinan Excel (.xlsx)
+            </button>
+
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 rounded-2xl bg-blue-950 hover:bg-blue-900 text-white font-extrabold transition text-base sm:text-lg shadow-lg cursor-pointer"
+            >
+              <Printer className="w-6 h-6 text-amber-300" />
+              Cetak / Simpan PDF
+            </button>
+          </div>
         </div>
       </div>
     </div>

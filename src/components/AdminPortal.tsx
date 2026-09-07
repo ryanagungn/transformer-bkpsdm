@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { SurveyData, ScoringResult } from '../types/survey';
 import { MasterPegawai } from '../types/pegawai';
 import { DEFAULT_MASTER_PEGAWAI, downloadPegawaiTemplate, parsePegawaiExcel } from '../data/defaultPegawai';
+import { downloadAllRecordsExcel } from '../utils/excelBackup';
 import {
   LayoutDashboard,
   Users,
@@ -83,6 +84,53 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   };
 
   const [testSendStatus, setTestSendStatus] = useState<'idle' | 'sending' | 'success' | 'failed'>('idle');
+
+  // Sinkronisasi antrean offline ke Google Sheets
+  const [syncQueueStatus, setSyncQueueStatus] = useState<{ running: boolean; current: number; total: number; successCount: number; errorCount: number } | null>(null);
+
+  const handleSyncAllToGoogleSheets = async () => {
+    if (!urlInput) {
+      alert('Mohon simpan URL Webhook Google Apps Script terlebih dahulu di tab ini.');
+      return;
+    }
+    if (records.length === 0) {
+      alert('Tidak ada data responden lokal untuk dikirim.');
+      return;
+    }
+
+    if (!confirm(`Kirim seluruh ${records.length} data responden lokal ke Google Spreadsheet sekarang?`)) {
+      return;
+    }
+
+    setSyncQueueStatus({ running: true, current: 0, total: records.length, successCount: 0, errorCount: 0 });
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (let i = 0; i < records.length; i++) {
+      const r = records[i];
+      setSyncQueueStatus({ running: true, current: i + 1, total: records.length, successCount, errorCount });
+      try {
+        const payload = {
+          ...r.data,
+          scoring: r.score,
+          submittedAt: r.timestamp
+        };
+        await fetch(urlInput, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        successCount++;
+      } catch (err) {
+        console.error('Sync failed for record', r.id, err);
+        errorCount++;
+      }
+    }
+
+    setSyncQueueStatus({ running: false, current: records.length, total: records.length, successCount, errorCount });
+  };
 
   const handleTestConnection = async () => {
     if (!urlInput) {
@@ -634,18 +682,26 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <p className="text-xs text-slate-500">Tabel data peserta yang telah menyelesaikan kuesioner</p>
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => downloadAllRecordsExcel(records)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs cursor-pointer border border-emerald-600"
+                title="Unduh 37 kolom lengkap dalam format Excel (.xlsx) sebagai cadangan jika tidak masuk Google Sheets"
+              >
+                <FileSpreadsheet className="w-4 h-4" /> Unduh Cadangan Excel (.xlsx)
+              </button>
               <button
                 type="button"
                 onClick={handleExportCSV}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs shadow-xs cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs shadow-xs cursor-pointer"
               >
-                <Download className="w-4 h-4" /> Unduh CSV
+                <Download className="w-4 h-4" /> CSV
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  if (confirm('Hapus seluruh rekap responden lokal?')) saveRecords([]);
+                  if (confirm('Hapus seluruh rekap responden lokal? Pastikan Anda sudah mengunduh cadangan Excel terlebih dahulu.')) saveRecords([]);
                 }}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-50 font-bold text-xs cursor-pointer"
               >
@@ -726,6 +782,46 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             <p className="text-sm text-slate-600 mt-1">
               Hubungkan formulir kuesioner dengan Google Spreadsheet di Google Drive akun BKPSDM Anda.
             </p>
+          </div>
+
+          {/* FITUR CADANGAN & SINKRONISASI ULANG */}
+          <div className="p-5 rounded-2xl bg-amber-50/80 border-2 border-amber-200 space-y-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="font-bold text-amber-950 text-sm flex items-center gap-2">
+                  <FileSpreadsheet className="w-4 h-4 text-amber-700" />
+                  Cadangan Offline & Sinkronisasi Antrean ke Google Sheets
+                </h4>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  Tersedia <strong>{records.length} responden</strong> tersimpan aman di memori lokal browser. Anda dapat mengunduhnya dalam format Excel (.xlsx) atau mengirimkan seluruhnya ke Google Sheets.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => downloadAllRecordsExcel(records)}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <FileSpreadsheet className="w-4 h-4" /> Unduh .xlsx ({records.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSyncAllToGoogleSheets}
+                  disabled={syncQueueStatus?.running || records.length === 0}
+                  className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1.5"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${syncQueueStatus?.running ? 'animate-spin' : ''}`} />
+                  {syncQueueStatus?.running ? `Mengirim (${syncQueueStatus.current}/${syncQueueStatus.total})...` : 'Kirim Antrean ke Sheets'}
+                </button>
+              </div>
+            </div>
+
+            {syncQueueStatus && !syncQueueStatus.running && (
+              <div className="text-xs font-bold text-emerald-900 bg-emerald-100 p-2.5 rounded-xl border border-emerald-300 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                <span>Proses sinkronisasi selesai: {syncQueueStatus.successCount} terkirim{syncQueueStatus.errorCount > 0 ? `, ${syncQueueStatus.errorCount} gagal` : ''}.</span>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
