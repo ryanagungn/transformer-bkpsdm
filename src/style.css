@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@layer base {
+  /* Smooth animations and comfortable readability for seniors/ASN */
+  input[type="text"],
+  input[type="number"],
+  select,
+  textarea {
+    @apply transition duration-150 ease-in-out;
+  }
+}
