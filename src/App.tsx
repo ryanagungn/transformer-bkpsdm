@@ -187,20 +187,12 @@ export function App() {
   const validateCurrentStep = (): boolean => {
     setErrorMessage('');
     if (currentStep === 1) {
+      if (!formData.nip || formData.nip.length !== 18) {
+        setErrorMessage('Mohon masukkan 18 digit NIP Bapak/Ibu yang terdaftar pada kolom nomor 1.');
+        return false;
+      }
       if (!formData.nama.trim()) {
-        setErrorMessage('Mohon lengkapi Nama Lengkap Bapak/Ibu (atau ketik 18 digit NIP untuk auto-fill).');
-        return false;
-      }
-      if (!formData.unitKerja) {
-        setErrorMessage('Mohon pilih Perangkat Daerah / Instansi Bapak/Ibu.');
-        return false;
-      }
-      if (!formData.jabatan.trim()) {
-        setErrorMessage('Mohon tuliskan Jabatan Terakhir Bapak/Ibu.');
-        return false;
-      }
-      if (!formData.usia || Number(formData.usia) < 30) {
-        setErrorMessage('Mohon masukkan angka usia yang benar.');
+        setErrorMessage('NIP tidak terdaftar dalam Database Transformers 2026 BKPSDM. Survei ini hanya dapat diisi oleh ASN yang terdaftar.');
         return false;
       }
     } else if (currentStep === 2) {

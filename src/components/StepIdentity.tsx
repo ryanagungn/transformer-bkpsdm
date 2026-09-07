@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { SurveyData } from '../types/survey';
 import { MasterPegawai } from '../types/pegawai';
-import { OPD_LIST, TAHUN_PENSIUN_LIST, PENDIDIKAN_LIST, DOMISILI_LIST } from '../data/surveyQuestions';
-import { User, Check, Sparkles, CheckCircle2, Search, Lock } from 'lucide-react';
+import { PENDIDIKAN_LIST, DOMISILI_LIST } from '../data/surveyQuestions';
+import { User, Check, Sparkles, CheckCircle2, Lock, AlertCircle } from 'lucide-react';
 
 interface Props {
   data: SurveyData;
@@ -16,13 +16,10 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
   const [notFoundNotice, setNotFoundNotice] = useState(false);
 
   const cleanNip = nipSearch.replace(/\D/g, '').trim();
-  const isNipIncomplete = cleanNip.length < 18;
-  const isFieldLocked = isNipIncomplete || !!matchFound;
 
-  // Verifikasi KETAT:
-  // 1. Jika tepat 18 digit cocok -> auto-fill dan kunci permanen.
-  // 2. Jika NIP dihapus/diedit walau 1 karakter (< 18 digit) -> KOSONGKAN data & KUNCI field agar data tidak menggantung/bisa diedit curang.
-  // 3. Jika 18 digit tidak terdaftar di database 2026 -> buka kolom untuk pengisian manual.
+  // VERIFIKASI MUTLAK:
+  // Data nomor 2 s.d 6 HANYA BISA TERISI OTOMATIS dari NIP yang terdaftar di Database Transformers 2026.
+  // Tidak ada mode pengisian manual sama sekali.
   useEffect(() => {
     if (cleanNip.length === 18) {
       const found = masterPegawai.find((p) => p.nip.replace(/\D/g, '') === cleanNip);
@@ -41,10 +38,15 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
       } else {
         setMatchFound(null);
         setNotFoundNotice(true);
+        onChange({
+          nama: '',
+          unitKerja: '',
+          jabatan: '',
+          usia: '',
+          tahunPensiun: ''
+        });
       }
     } else {
-      // Jika NIP kurang dari 18 digit (sedang diketik atau dihapus/diedit):
-      // Wajib bersihkan isian yang sebelumnya otomatis
       setMatchFound(null);
       setNotFoundNotice(false);
       onChange({
@@ -70,20 +72,20 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
               Bagian A: Identitas Pegawai
             </h2>
             <p className="text-sm sm:text-base text-blue-900/90 mt-1 leading-relaxed">
-              Masukkan <strong>NIP Bapak/Ibu</strong> pada kolom pertama di bawah. Sistem akan <strong>secara otomatis mengisi Nama, Jabatan, OPD, dan Rencana Pensiun</strong> dari Database Transformers 2026 BKPSDM.
+              Masukkan <strong>18 digit NIP Bapak/Ibu</strong> pada kolom nomor 1 di bawah. Seluruh data identitas pegawai akan <strong>terisi otomatis dan terkunci</strong> dari Database Transformers 2026 BKPSDM.
             </p>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* NIP TERLETAK PALING ATAS DENGAN AUTO-FILL DETECTION */}
+        {/* NIP TERLETAK PALING ATAS */}
         <div className="space-y-2 md:col-span-2 relative">
           <div className="flex items-center justify-between">
             <label className="block text-base font-bold text-slate-900 flex items-center gap-2">
               <span>1. NIP (Nomor Induk Pegawai)</span>
               <span className="text-xs font-black text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-amber-600" /> Auto-Fill Otomatis
+                <Sparkles className="w-3 h-3 text-amber-600" /> Kunci Verifikasi
               </span>
             </label>
             <span className="text-xs text-slate-500 font-medium">
@@ -98,7 +100,7 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
               placeholder="Masukkan 18 digit NIP Anda (Contoh: 197108142014062001)..."
               value={nipSearch}
               onChange={(e) => {
-                const val = e.target.value.replace(/\D/g, ''); // Hanya terima angka
+                const val = e.target.value.replace(/\D/g, '');
                 setNipSearch(val);
                 onChange({ nip: val });
               }}
@@ -112,15 +114,20 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
             )}
           </div>
 
-          {/* Notifikasi Ramah jika 18 digit terisi tapi tidak ada di database */}
-          {notFoundNotice && nipSearch.length === 18 && (
-            <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs sm:text-sm font-medium flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0" />
-              <span>NIP tidak terdaftar di database Transformers 2026. Bapak/Ibu dapat mengisi Nama dan Perangkat Daerah secara manual di bawah ini.</span>
+          {/* Peringatan jika NIP 18 digit tidak terdaftar */}
+          {notFoundNotice && cleanNip.length === 18 && (
+            <div className="p-4 rounded-2xl bg-rose-50 border-2 border-rose-300 text-rose-950 text-xs sm:text-sm font-bold flex items-start gap-2.5 animate-in fade-in duration-200">
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <span>NIP tidak terdaftar dalam Database Transformers 2026 BKPSDM.</span>
+                <p className="font-normal text-xs text-rose-800 mt-0.5">
+                  Survei ini khusus bagi ASN yang terdaftar dalam program pembekalan pra-pensiun BKPSDM Kab. Majalengka. Mohon periksa kembali 18 digit NIP Anda.
+                </p>
+              </div>
             </div>
           )}
 
-          {/* Notifikasi Data Ditemukan */}
+          {/* Konfirmasi Data ASN Ditemukan */}
           {matchFound && (
             <div className="p-4 rounded-xl bg-emerald-50 border-2 border-emerald-300 text-emerald-950 text-xs sm:text-sm space-y-1">
               <div className="flex items-center gap-2 font-black text-emerald-900">
@@ -139,194 +146,152 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
           )}
         </div>
 
-        {/* Nama Lengkap */}
+        {/* 2. Nama Lengkap (HANYA OTOMATIS) */}
         <div className="space-y-2 md:col-span-2">
           <div className="flex items-center justify-between">
             <label className="block text-base font-bold text-slate-900">
               2. Nama Lengkap & Gelar <span className="text-rose-600 font-black">*</span>
             </label>
-            {matchFound ? (
-              <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
-                <Lock className="w-3 h-3 text-slate-500" /> Terkunci otomatis dari NIP
-              </span>
-            ) : isNipIncomplete ? (
-              <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
-                <Lock className="w-3 h-3 text-slate-400" /> Menunggu 18 digit NIP ({cleanNip.length}/18)
-              </span>
-            ) : (
-              <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
-                Pengisian Manual
-              </span>
-            )}
+            <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-md border flex items-center gap-1 ${
+              matchFound
+                ? 'bg-slate-100 text-slate-700 border-slate-300'
+                : 'bg-slate-100 text-slate-400 border-slate-200'
+            }`}>
+              <Lock className="w-3 h-3 text-slate-500" />
+              {matchFound ? 'Terisi otomatis dari NIP' : 'Hanya terisi otomatis dari NIP'}
+            </span>
           </div>
           <input
             type="text"
             required
-            disabled={isFieldLocked}
+            disabled={true}
+            readOnly={true}
             placeholder={
-              isNipIncomplete
-                ? "Ketik 18 digit NIP pada kolom nomor 1 terlebih dahulu..."
-                : "Contoh: Drs. H. Ahmad Sudirman, M.Si."
+              matchFound
+                ? ""
+                : "Otomatis terisi dari NIP terdaftar (tidak dapat diisi manual)..."
             }
             value={data.nama}
-            onChange={(e) => onChange({ nama: e.target.value })}
-            className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 font-medium shadow-2xs transition ${
-              isFieldLocked
-                ? 'bg-slate-100 border-slate-300 text-slate-700 font-bold cursor-not-allowed select-none'
-                : 'bg-white border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 text-slate-900'
+            className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 shadow-2xs cursor-not-allowed select-none font-bold ${
+              matchFound
+                ? 'bg-slate-100 border-slate-300 text-slate-900'
+                : 'bg-slate-50 border-slate-200 text-slate-400 placeholder:text-slate-400'
             }`}
           />
         </div>
 
-        {/* Instansi / Unit Kerja */}
+        {/* 3. Instansi / Unit Kerja (HANYA OTOMATIS) */}
         <div className="space-y-2 md:col-span-2">
           <div className="flex items-center justify-between">
             <label className="block text-base font-bold text-slate-900">
               3. Perangkat Daerah / Instansi / Unit Kerja (OPD) <span className="text-rose-600 font-black">*</span>
             </label>
-            {matchFound ? (
-              <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
-                <Lock className="w-3 h-3 text-slate-500" /> Terkunci otomatis dari NIP
-              </span>
-            ) : isNipIncomplete ? (
-              <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
-                <Lock className="w-3 h-3 text-slate-400" /> Menunggu 18 digit NIP
-              </span>
-            ) : (
-              <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
-                Pengisian Manual
-              </span>
-            )}
+            <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-md border flex items-center gap-1 ${
+              matchFound
+                ? 'bg-slate-100 text-slate-700 border-slate-300'
+                : 'bg-slate-100 text-slate-400 border-slate-200'
+            }`}>
+              <Lock className="w-3 h-3 text-slate-500" />
+              {matchFound ? 'Terisi otomatis dari NIP' : 'Hanya terisi otomatis dari NIP'}
+            </span>
           </div>
-          <select
-            disabled={isFieldLocked}
+          <input
+            type="text"
+            required
+            disabled={true}
+            readOnly={true}
+            placeholder={
+              matchFound
+                ? ""
+                : "Otomatis terisi dari database OPD BKPSDM..."
+            }
             value={data.unitKerja}
-            onChange={(e) => onChange({ unitKerja: e.target.value })}
-            className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 font-semibold shadow-2xs transition ${
-              isFieldLocked
-                ? 'bg-slate-100 border-slate-300 text-slate-700 font-bold cursor-not-allowed opacity-90'
-                : 'bg-white border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 text-slate-800 cursor-pointer'
+            className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 shadow-2xs cursor-not-allowed select-none font-bold ${
+              matchFound
+                ? 'bg-slate-100 border-slate-300 text-slate-900'
+                : 'bg-slate-50 border-slate-200 text-slate-400 placeholder:text-slate-400'
             }`}
-          >
-            <option value="">
-              {isNipIncomplete
-                ? "-- Masukkan 18 digit NIP pada nomor 1 terlebih dahulu --"
-                : "-- Pilih Perangkat Daerah / Unit Kerja --"}
-            </option>
-            {OPD_LIST.map((opd) => (
-              <option key={opd} value={opd}>
-                {opd}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
-        {/* Jabatan Terakhir */}
+        {/* 4. Jabatan Terakhir (HANYA OTOMATIS) */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="block text-base font-bold text-slate-900">
               4. Jabatan Terakhir <span className="text-rose-600 font-black">*</span>
             </label>
-            {matchFound ? (
-              <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
-                <Lock className="w-3 h-3 text-slate-500" /> Terkunci
-              </span>
-            ) : isNipIncomplete ? (
-              <span className="text-[11px] font-medium text-slate-400">Terkunci</span>
-            ) : null}
+            <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 flex items-center gap-1">
+              <Lock className="w-3 h-3 text-slate-400" /> Otomatis
+            </span>
           </div>
           <input
             type="text"
-            disabled={isFieldLocked}
-            placeholder={
-              isNipIncomplete
-                ? "Menunggu NIP..."
-                : "Contoh: Kepala Bidang / Guru Madya / Staf"
-            }
+            disabled={true}
+            readOnly={true}
+            placeholder={matchFound ? "" : "Otomatis dari NIP..."}
             value={data.jabatan}
-            onChange={(e) => onChange({ jabatan: e.target.value })}
-            className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 font-medium shadow-2xs transition ${
-              isFieldLocked
-                ? 'bg-slate-100 border-slate-300 text-slate-700 font-bold cursor-not-allowed select-none'
-                : 'bg-white border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 text-slate-900'
+            className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 shadow-2xs cursor-not-allowed select-none font-bold ${
+              matchFound
+                ? 'bg-slate-100 border-slate-300 text-slate-900'
+                : 'bg-slate-50 border-slate-200 text-slate-400 placeholder:text-slate-400'
             }`}
           />
         </div>
 
-        {/* Usia */}
+        {/* 5. Usia (HANYA OTOMATIS) */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="block text-base font-bold text-slate-900">
               5. Usia Saat Ini (Tahun) <span className="text-rose-600 font-black">*</span>
             </label>
-            {matchFound ? (
-              <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
-                <Lock className="w-3 h-3 text-slate-500" /> Terkunci
-              </span>
-            ) : isNipIncomplete ? (
-              <span className="text-[11px] font-medium text-slate-400">Terkunci</span>
-            ) : null}
+            <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 flex items-center gap-1">
+              <Lock className="w-3 h-3 text-slate-400" /> Otomatis
+            </span>
           </div>
           <input
-            type="number"
-            min="40"
-            max="75"
-            disabled={isFieldLocked}
-            placeholder={isNipIncomplete ? "NIP..." : "Contoh: 57"}
-            value={data.usia}
-            onChange={(e) => onChange({ usia: e.target.value })}
-            className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 font-medium shadow-2xs transition ${
-              isFieldLocked
-                ? 'bg-slate-100 border-slate-300 text-slate-700 font-bold cursor-not-allowed select-none'
-                : 'bg-white border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 text-slate-900'
+            type="text"
+            disabled={true}
+            readOnly={true}
+            placeholder={matchFound ? "" : "Otomatis..."}
+            value={data.usia ? `${data.usia} Tahun` : ''}
+            className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 shadow-2xs cursor-not-allowed select-none font-bold ${
+              matchFound
+                ? 'bg-slate-100 border-slate-300 text-slate-900'
+                : 'bg-slate-50 border-slate-200 text-slate-400 placeholder:text-slate-400'
             }`}
           />
         </div>
 
-        {/* Tahun Pensiun */}
+        {/* 6. Tahun Pensiun (HANYA OTOMATIS) */}
         <div className="space-y-2 md:col-span-2">
           <div className="flex items-center justify-between">
             <label className="block text-base font-bold text-slate-900">
               6. Tahun Perkiraan Mulai Purna Tugas <span className="text-rose-600 font-black">*</span>
             </label>
-            {matchFound ? (
-              <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
-                <Lock className="w-3 h-3 text-slate-500" /> Terkunci otomatis dari NIP
-              </span>
-            ) : isNipIncomplete ? (
-              <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
-                <Lock className="w-3 h-3 text-slate-400" /> Menunggu 18 digit NIP
-              </span>
-            ) : (
-              <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
-                Pengisian Manual
-              </span>
-            )}
+            <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-md border flex items-center gap-1 ${
+              matchFound
+                ? 'bg-slate-100 text-slate-700 border-slate-300'
+                : 'bg-slate-100 text-slate-400 border-slate-200'
+            }`}>
+              <Lock className="w-3 h-3 text-slate-500" />
+              {matchFound ? 'Terisi otomatis dari NIP' : 'Hanya terisi otomatis dari NIP'}
+            </span>
           </div>
-          <select
-            disabled={isFieldLocked}
-            value={data.tahunPensiun}
-            onChange={(e) => onChange({ tahunPensiun: e.target.value })}
-            className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 font-semibold shadow-2xs transition ${
-              isFieldLocked
-                ? 'bg-slate-100 border-slate-300 text-slate-700 font-bold cursor-not-allowed opacity-90'
-                : 'bg-white border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 text-slate-800 cursor-pointer'
+          <input
+            type="text"
+            disabled={true}
+            readOnly={true}
+            placeholder={matchFound ? "" : "Otomatis terisi dari database pensiun BKPSDM..."}
+            value={data.tahunPensiun ? `Tahun ${data.tahunPensiun}` : ''}
+            className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 shadow-2xs cursor-not-allowed select-none font-bold ${
+              matchFound
+                ? 'bg-slate-100 border-slate-300 text-slate-900'
+                : 'bg-slate-50 border-slate-200 text-slate-400 placeholder:text-slate-400'
             }`}
-          >
-            <option value="">
-              {isNipIncomplete
-                ? "-- Masukkan 18 digit NIP pada nomor 1 terlebih dahulu --"
-                : "-- Pilih Tahun Pensiun --"}
-            </option>
-            {TAHUN_PENSIUN_LIST.map((th) => (
-              <option key={th} value={th}>
-                Tahun {th}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
-        {/* Pendidikan Terakhir */}
+        {/* 7. Pendidikan Terakhir */}
         <div className="space-y-3 md:col-span-2 pt-2 border-t border-slate-200">
           <label className="block text-base font-bold text-slate-900">
             7. Pendidikan Terakhir <span className="text-rose-600 font-black">*</span>
@@ -357,7 +322,7 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
           </div>
         </div>
 
-        {/* Domisili Purna Tugas */}
+        {/* 8. Domisili Purna Tugas */}
         <div className="space-y-3 md:col-span-2 pt-2 border-t border-slate-200">
           <label className="block text-base font-bold text-slate-900">
             8. Rencana Tempat Tinggal (Domisili) Setelah Purna Tugas <span className="text-rose-600 font-black">*</span>
