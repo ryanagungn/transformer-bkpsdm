@@ -15,12 +15,17 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
   const [matchFound, setMatchFound] = useState<MasterPegawai | null>(null);
   const [notFoundNotice, setNotFoundNotice] = useState(false);
 
-  // Verifikasi KETAT: Hanya cocokkan jika 18 DIGIT NIP LENGKAP dimasukkan (Exact Match)
-  // Tidak ada dropdown / saran nama orang lain agar kerahasiaan data terjaga 100%
+  const cleanNip = nipSearch.replace(/\D/g, '').trim();
+  const isNipIncomplete = cleanNip.length < 18;
+  const isFieldLocked = isNipIncomplete || !!matchFound;
+
+  // Verifikasi KETAT:
+  // 1. Jika tepat 18 digit cocok -> auto-fill dan kunci permanen.
+  // 2. Jika NIP dihapus/diedit walau 1 karakter (< 18 digit) -> KOSONGKAN data & KUNCI field agar data tidak menggantung/bisa diedit curang.
+  // 3. Jika 18 digit tidak terdaftar di database 2026 -> buka kolom untuk pengisian manual.
   useEffect(() => {
-    const clean = nipSearch.replace(/\D/g, '').trim();
-    if (clean.length === 18) {
-      const found = masterPegawai.find((p) => p.nip.replace(/\D/g, '') === clean);
+    if (cleanNip.length === 18) {
+      const found = masterPegawai.find((p) => p.nip.replace(/\D/g, '') === cleanNip);
       if (found) {
         setMatchFound(found);
         setNotFoundNotice(false);
@@ -29,8 +34,8 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
           nama: found.nama,
           unitKerja: found.unitKerja,
           jabatan: found.jabatan,
-          tahunPensiun: found.tahunPensiun || data.tahunPensiun,
-          usia: found.usia || data.usia,
+          tahunPensiun: found.tahunPensiun || '2026',
+          usia: found.usia || '56',
           pendidikan: found.pendidikan || data.pendidikan
         });
       } else {
@@ -38,10 +43,19 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
         setNotFoundNotice(true);
       }
     } else {
+      // Jika NIP kurang dari 18 digit (sedang diketik atau dihapus/diedit):
+      // Wajib bersihkan isian yang sebelumnya otomatis
       setMatchFound(null);
       setNotFoundNotice(false);
+      onChange({
+        nama: '',
+        unitKerja: '',
+        jabatan: '',
+        usia: '',
+        tahunPensiun: ''
+      });
     }
-  }, [nipSearch, masterPegawai]);
+  }, [cleanNip, masterPegawai]);
 
   return (
     <div className="space-y-6">
@@ -125,56 +139,80 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
           )}
         </div>
 
-        {/* Nama Lengkap (Terkunci jika auto-fill dari NIP aktif) */}
+        {/* Nama Lengkap */}
         <div className="space-y-2 md:col-span-2">
           <div className="flex items-center justify-between">
             <label className="block text-base font-bold text-slate-900">
               2. Nama Lengkap & Gelar <span className="text-rose-600 font-black">*</span>
             </label>
-            {matchFound && (
-              <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
+            {matchFound ? (
+              <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
                 <Lock className="w-3 h-3 text-slate-500" /> Terkunci otomatis dari NIP
+              </span>
+            ) : isNipIncomplete ? (
+              <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
+                <Lock className="w-3 h-3 text-slate-400" /> Menunggu 18 digit NIP ({cleanNip.length}/18)
+              </span>
+            ) : (
+              <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                Pengisian Manual
               </span>
             )}
           </div>
           <input
             type="text"
             required
-            disabled={!!matchFound}
-            placeholder="Contoh: Drs. H. Ahmad Sudirman, M.Si."
+            disabled={isFieldLocked}
+            placeholder={
+              isNipIncomplete
+                ? "Ketik 18 digit NIP pada kolom nomor 1 terlebih dahulu..."
+                : "Contoh: Drs. H. Ahmad Sudirman, M.Si."
+            }
             value={data.nama}
             onChange={(e) => onChange({ nama: e.target.value })}
             className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 font-medium shadow-2xs transition ${
-              matchFound
+              isFieldLocked
                 ? 'bg-slate-100 border-slate-300 text-slate-700 font-bold cursor-not-allowed select-none'
                 : 'bg-white border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 text-slate-900'
             }`}
           />
         </div>
 
-        {/* Instansi / Unit Kerja (Terkunci jika auto-fill dari NIP aktif) */}
+        {/* Instansi / Unit Kerja */}
         <div className="space-y-2 md:col-span-2">
           <div className="flex items-center justify-between">
             <label className="block text-base font-bold text-slate-900">
               3. Perangkat Daerah / Instansi / Unit Kerja (OPD) <span className="text-rose-600 font-black">*</span>
             </label>
-            {matchFound && (
-              <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
+            {matchFound ? (
+              <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
                 <Lock className="w-3 h-3 text-slate-500" /> Terkunci otomatis dari NIP
+              </span>
+            ) : isNipIncomplete ? (
+              <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
+                <Lock className="w-3 h-3 text-slate-400" /> Menunggu 18 digit NIP
+              </span>
+            ) : (
+              <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                Pengisian Manual
               </span>
             )}
           </div>
           <select
-            disabled={!!matchFound}
+            disabled={isFieldLocked}
             value={data.unitKerja}
             onChange={(e) => onChange({ unitKerja: e.target.value })}
             className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 font-semibold shadow-2xs transition ${
-              matchFound
+              isFieldLocked
                 ? 'bg-slate-100 border-slate-300 text-slate-700 font-bold cursor-not-allowed opacity-90'
                 : 'bg-white border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 text-slate-800 cursor-pointer'
             }`}
           >
-            <option value="">-- Pilih Perangkat Daerah / Unit Kerja --</option>
+            <option value="">
+              {isNipIncomplete
+                ? "-- Masukkan 18 digit NIP pada nomor 1 terlebih dahulu --"
+                : "-- Pilih Perangkat Daerah / Unit Kerja --"}
+            </option>
             {OPD_LIST.map((opd) => (
               <option key={opd} value={opd}>
                 {opd}
@@ -183,83 +221,103 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
           </select>
         </div>
 
-        {/* Jabatan Terakhir (Terkunci jika auto-fill dari NIP aktif) */}
+        {/* Jabatan Terakhir */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="block text-base font-bold text-slate-900">
               4. Jabatan Terakhir <span className="text-rose-600 font-black">*</span>
             </label>
-            {matchFound && (
-              <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
+            {matchFound ? (
+              <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
                 <Lock className="w-3 h-3 text-slate-500" /> Terkunci
               </span>
-            )}
+            ) : isNipIncomplete ? (
+              <span className="text-[11px] font-medium text-slate-400">Terkunci</span>
+            ) : null}
           </div>
           <input
             type="text"
-            disabled={!!matchFound}
-            placeholder="Contoh: Kepala Bidang / Guru Madya / Staf"
+            disabled={isFieldLocked}
+            placeholder={
+              isNipIncomplete
+                ? "Menunggu NIP..."
+                : "Contoh: Kepala Bidang / Guru Madya / Staf"
+            }
             value={data.jabatan}
             onChange={(e) => onChange({ jabatan: e.target.value })}
             className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 font-medium shadow-2xs transition ${
-              matchFound
+              isFieldLocked
                 ? 'bg-slate-100 border-slate-300 text-slate-700 font-bold cursor-not-allowed select-none'
                 : 'bg-white border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 text-slate-900'
             }`}
           />
         </div>
 
-        {/* Usia (Terkunci jika auto-fill dari NIP aktif) */}
+        {/* Usia */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="block text-base font-bold text-slate-900">
               5. Usia Saat Ini (Tahun) <span className="text-rose-600 font-black">*</span>
             </label>
-            {matchFound && (
-              <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
+            {matchFound ? (
+              <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
                 <Lock className="w-3 h-3 text-slate-500" /> Terkunci
               </span>
-            )}
+            ) : isNipIncomplete ? (
+              <span className="text-[11px] font-medium text-slate-400">Terkunci</span>
+            ) : null}
           </div>
           <input
             type="number"
             min="40"
             max="75"
-            disabled={!!matchFound}
-            placeholder="Contoh: 57"
+            disabled={isFieldLocked}
+            placeholder={isNipIncomplete ? "NIP..." : "Contoh: 57"}
             value={data.usia}
             onChange={(e) => onChange({ usia: e.target.value })}
             className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 font-medium shadow-2xs transition ${
-              matchFound
+              isFieldLocked
                 ? 'bg-slate-100 border-slate-300 text-slate-700 font-bold cursor-not-allowed select-none'
                 : 'bg-white border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 text-slate-900'
             }`}
           />
         </div>
 
-        {/* Tahun Pensiun (Terkunci jika auto-fill dari NIP aktif) */}
+        {/* Tahun Pensiun */}
         <div className="space-y-2 md:col-span-2">
           <div className="flex items-center justify-between">
             <label className="block text-base font-bold text-slate-900">
               6. Tahun Perkiraan Mulai Purna Tugas <span className="text-rose-600 font-black">*</span>
             </label>
-            {matchFound && (
-              <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
+            {matchFound ? (
+              <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300 flex items-center gap-1">
                 <Lock className="w-3 h-3 text-slate-500" /> Terkunci otomatis dari NIP
+              </span>
+            ) : isNipIncomplete ? (
+              <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
+                <Lock className="w-3 h-3 text-slate-400" /> Menunggu 18 digit NIP
+              </span>
+            ) : (
+              <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                Pengisian Manual
               </span>
             )}
           </div>
           <select
-            disabled={!!matchFound}
+            disabled={isFieldLocked}
             value={data.tahunPensiun}
             onChange={(e) => onChange({ tahunPensiun: e.target.value })}
             className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 font-semibold shadow-2xs transition ${
-              matchFound
+              isFieldLocked
                 ? 'bg-slate-100 border-slate-300 text-slate-700 font-bold cursor-not-allowed opacity-90'
                 : 'bg-white border-slate-300 focus:border-blue-700 focus:ring-4 focus:ring-blue-500/20 text-slate-800 cursor-pointer'
             }`}
           >
-            <option value="">-- Pilih Tahun Pensiun --</option>
+            <option value="">
+              {isNipIncomplete
+                ? "-- Masukkan 18 digit NIP pada nomor 1 terlebih dahulu --"
+                : "-- Pilih Tahun Pensiun --"}
+            </option>
             {TAHUN_PENSIUN_LIST.map((th) => (
               <option key={th} value={th}>
                 Tahun {th}
