@@ -48,8 +48,13 @@ export const ResultCard: React.FC<Props> = ({
       <div className="bg-white rounded-3xl border-3 border-blue-900/30 overflow-hidden shadow-xl print:shadow-none print:border-2 print:border-slate-800">
         {/* Banner Kop Surat dengan Logo Transformer & BKPSDM */}
         <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 text-white p-6 sm:p-8 text-center relative border-b-4 border-amber-400">
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <div className="w-14 h-14 rounded-2xl bg-white/10 p-1.5 backdrop-blur-xs border border-white/20 shadow-inner flex items-center justify-center">
+          <div className="flex items-center justify-center gap-4 mb-3">
+            <img
+              src="/logo_bkpsdm.png"
+              alt="Logo BKPSDM Kab. Majalengka"
+              className="h-11 sm:h-13 w-auto object-contain drop-shadow-md"
+            />
+            <div className="w-11 h-11 sm:w-13 sm:h-13 rounded-2xl bg-white/10 p-1.5 backdrop-blur-xs border border-amber-400/60 shadow-inner flex items-center justify-center shrink-0">
               <img
                 src="/logo_transformer.png"
                 alt="Logo Transformer BKPSDM"

@@ -20,12 +20,12 @@ export const WelcomeScreen: React.FC<Props> = ({ onStart, totalPegawai = 2700 })
             {/* Header Instansi & Logo Berdampingan */}
             <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-blue-800/80">
               <div className="flex flex-wrap items-center gap-4">
-                {/* Logo BKPSDM Majalengka */}
-                <div className="bg-white rounded-2xl px-3.5 py-2 shadow-lg border border-slate-200">
+                {/* Logo BKPSDM Majalengka (Tanpa Box Putih) */}
+                <div className="flex items-center justify-center shrink-0">
                   <img
                     src="/logo_bkpsdm.png"
                     alt="Logo BKPSDM Kab. Majalengka"
-                    className="h-10 sm:h-12 w-auto object-contain"
+                    className="h-12 sm:h-14 w-auto object-contain drop-shadow-lg"
                   />
                 </div>
 

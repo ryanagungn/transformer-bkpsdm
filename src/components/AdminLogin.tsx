@@ -38,11 +38,23 @@ export const AdminLogin: React.FC<Props> = ({ onSuccess, onCancel }) => {
 
   const isLocked = remainingSeconds > 0;
 
-  const handleLogin = (e: React.FormEvent) => {
+  const hashPassword = async (str: string): Promise<string> => {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(str);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLocked) return;
 
-    if (password === 'ryanagung123') {
+    // Hash SHA-256 satu arah (one-way cryptographic hash) untuk melindungi sandi admin
+    const ADMIN_HASH = 'f0ce9f208012ce77d84bcc139f507d5e31acce4d1d23e0481704269791b692a4';
+    const inputHash = await hashPassword(password);
+
+    if (inputHash === ADMIN_HASH) {
       setError(false);
       sessionStorage.removeItem('bkpsdm_login_attempts');
       sessionStorage.removeItem('bkpsdm_lockout_until');
@@ -76,8 +88,8 @@ export const AdminLogin: React.FC<Props> = ({ onSuccess, onCancel }) => {
         {/* Logo & Judul */}
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center gap-3">
-            <div className="bg-white rounded-xl px-2.5 py-1.5 shadow-md border border-slate-200">
-              <img src="/logo_bkpsdm.png" alt="Logo BKPSDM Kab. Majalengka" className="h-8 w-auto object-contain" />
+            <div className="flex items-center justify-center shrink-0">
+              <img src="/logo_bkpsdm.png" alt="Logo BKPSDM Kab. Majalengka" className="h-8 w-auto object-contain drop-shadow-sm" />
             </div>
             <div className="w-12 h-12 rounded-xl bg-blue-950 p-1.5 flex items-center justify-center shadow-md border-2 border-amber-400">
               <img src="/logo_transformer.png" alt="Logo Transformers" className="w-full h-full object-contain" />

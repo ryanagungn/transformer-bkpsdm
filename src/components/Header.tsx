@@ -29,12 +29,12 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
           {/* Sisi Kiri: Dua Logo Resmi & Identitas Instansi */}
           <div className="flex items-center gap-3 w-full md:w-auto">
-            {/* Logo Resmi BKPSDM Kabupaten Majalengka */}
-            <div className="bg-white rounded-xl px-2.5 py-1.5 shadow-md flex items-center justify-center shrink-0 border border-slate-200">
+            {/* Logo Resmi BKPSDM Kabupaten Majalengka (Tanpa Box Putih) */}
+            <div className="flex items-center justify-center shrink-0">
               <img
                 src="/logo_bkpsdm.png"
                 alt="Logo BKPSDM Kab. Majalengka"
-                className="h-8 sm:h-9 w-auto object-contain"
+                className="h-9 sm:h-10 w-auto object-contain drop-shadow-md"
               />
             </div>
 

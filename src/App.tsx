@@ -557,8 +557,8 @@ export function App() {
       <footer className="bg-white border-t-2 border-slate-200 py-5 px-6 text-xs sm:text-sm text-slate-600 mt-auto">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3 justify-center sm:justify-start">
-            <div className="bg-white rounded-lg p-1 border border-slate-200 shadow-2xs">
-              <img src="/logo_bkpsdm.png" alt="BKPSDM Kab. Majalengka" className="h-6 sm:h-7 w-auto object-contain" />
+            <div className="flex items-center justify-center shrink-0">
+              <img src="/logo_bkpsdm.png" alt="BKPSDM Kab. Majalengka" className="h-7 sm:h-8 w-auto object-contain" />
             </div>
             <div className="h-5 w-px bg-slate-300 hidden sm:block" />
             <div className="flex items-center gap-1.5">
