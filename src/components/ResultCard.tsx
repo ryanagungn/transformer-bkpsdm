@@ -1,13 +1,11 @@
 import React from 'react';
 import { ScoringResult, SurveyData } from '../types/survey';
-import { downloadSingleSurveyExcel } from '../utils/excelBackup';
 import {
   Printer,
   RotateCcw,
   Sparkles,
   CheckCircle2,
   ThumbsUp,
-  Download,
   Briefcase,
   Layers
 } from 'lucide-react';
@@ -184,7 +182,7 @@ export const ResultCard: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Tombol Cetak / Selesai / Unduh Excel */}
+        {/* Tombol Cetak / Selesai */}
         <div className="px-6 sm:px-8 py-6 bg-slate-100 border-t-2 border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 print:hidden">
           <button
             type="button"
@@ -195,27 +193,14 @@ export const ResultCard: React.FC<Props> = ({
             Isi Formulir Baru
           </button>
 
-          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-            {/* Tombol Cadangan Excel */}
-            <button
-              type="button"
-              onClick={() => downloadSingleSurveyExcel(data, result)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold transition text-base shadow-md cursor-pointer"
-              title="Unduh berkas Excel hasil survei ini sebagai arsip cadangan pribadi"
-            >
-              <Download className="w-5 h-5 text-emerald-200" />
-              Unduh Salinan Excel (.xlsx)
-            </button>
-
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 rounded-2xl bg-blue-950 hover:bg-blue-900 text-white font-extrabold transition text-base sm:text-lg shadow-lg cursor-pointer"
-            >
-              <Printer className="w-6 h-6 text-amber-300" />
-              Cetak / Simpan PDF
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 rounded-2xl bg-blue-950 hover:bg-blue-900 text-white font-extrabold transition text-base sm:text-lg shadow-lg cursor-pointer"
+          >
+            <Printer className="w-6 h-6 text-amber-300" />
+            Cetak / Simpan PDF
+          </button>
         </div>
       </div>
     </div>

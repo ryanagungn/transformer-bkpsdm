@@ -112,9 +112,9 @@ export const WelcomeScreen: React.FC<Props> = ({ onStart, totalPegawai = 2700 })
                 <Award className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-slate-900 text-sm sm:text-base">Hasil Asesmen Instan</h4>
+                <h4 className="font-bold text-slate-900 text-sm sm:text-base">Hasil Peminatan & Rekomendasi Instan</h4>
                 <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                  Di akhir survei, Bapak/Ibu langsung mendapatkan <strong>Kartu Skor Kesiapan (0-100)</strong> beserta rekomendasi tindak lanjut.
+                  Di akhir survei, Bapak/Ibu langsung mendapatkan <strong>Kartu Peminatan Usaha resmi</strong> beserta rekomendasi program tindak lanjut pembekalan dari BKPSDM.
                 </p>
               </div>
             </div>
