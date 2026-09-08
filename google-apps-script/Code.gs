@@ -1,20 +1,21 @@
 /**
  * =========================================================================
- * GOOGLE APPS SCRIPT: CONNECTOR SURVEI ASN PRA-PENSIUN BKPSDM (VERSI REAL-TIME)
+ * GOOGLE APPS SCRIPT: CONNECTOR SURVEI ASN PRA-PENSIUN BKPSDM (VERSI ANTI-DUPLIKASI & REAL-TIME)
  * =========================================================================
- * Fitur:
- * 1. doPost : Menerima data kiriman survei dari responden dan mencatat ke Spreadsheet.
- * 2. doGet  : Mengirimkan seluruh data responden secara real-time ke Dashboard Admin.
+ * Fitur Utama:
+ * 1. doPost : Menerima submit survei. Dilengkapi ANTI-DUPLIKASI (otomatis update jika NIP sudah ada).
+ * 2. doGet  : Mengirimkan seluruh data responden unik real-time ke Dashboard Admin.
+ * 3. bersihkanDuplikasiDiSheet: Fungsi manual untuk membersihkan baris duplikasi di sheet jika ada.
  *
  * Panduan Update (Hanya 1 Menit):
- * 1. Buka file Google Spreadsheet Anda.
+ * 1. Buka Google Spreadsheet Anda.
  * 2. Di menu atas, klik: Extensions (Ekstensi) > Apps Script.
- * 3. Hapus semua kode yang ada di editor Apps Script, lalu TEMPEL SELURUH KODE INI.
- * 4. Klik ikon Simpan (Save/Disket).
- * 5. Klik tombol biru di kanan atas: "Deploy" (Terapkan) > "Manage deployments" (Kelola penerapan).
- * 6. Klik ikon Pensil (Edit) di samping deployment aktif Anda:
+ * 3. Hapus semua kode lama di editor, lalu TEMPEL SELURUH KODE INI.
+ * 4. Klik ikon Simpan (Disket).
+ * 5. Klik tombol biru di kanan atas: "Deploy" (Terapkan) > "Manage deployments".
+ * 6. Klik ikon Pensil (Edit):
  *    - Versi: Pilih "New version" (Versi baru).
- *    - Siapa yang memiliki akses (Who has access): "Anyone" (Siapa saja).
+ *    - Siapa yang memiliki akses: "Anyone" (Siapa saja).
  * 7. Klik "Deploy" (Terapkan).
  * =========================================================================
  */
@@ -38,7 +39,7 @@ function doPost(e) {
     simpanKeSheet(ss, data);
 
     return ContentService.createTextOutput(
-      JSON.stringify({ status: "success", message: "Data survei ASN berhasil disimpan ke Google Sheets." })
+      JSON.stringify({ status: "success", message: "Data survei ASN berhasil disimpan ke Google Sheets (Anti-Duplikasi Aktif)." })
     ).setMimeType(ContentService.MimeType.JSON);
 
   } catch (error) {
@@ -51,7 +52,7 @@ function doPost(e) {
   }
 }
 
-// Fungsi pembantu penyimpanan ke Sheet Data_Responden
+// Fungsi pembantu penyimpanan ke Sheet Data_Responden (Dengan Proteksi Anti-Duplikasi NIP)
 function simpanKeSheet(ss, data) {
   var sheet = ss.getSheetByName("Data_Responden");
   
@@ -164,11 +165,39 @@ function simpanKeSheet(ss, data) {
     data.scoring ? data.scoring.recommendation : "-"
   ];
 
-  sheet.appendRow(row);
-  Logger.log("✓ Berhasil menulis data ke Sheet Data_Responden.");
+  // ==========================================
+  // ANTI-DUPLIKASI: Cek keberadaan NIP di Sheet
+  // ==========================================
+  var nipTarget = String(data.nip || "").trim().replace(/[\s\.\-]/g, "");
+  var existingRowIndex = -1;
+
+  if (nipTarget && nipTarget !== "-" && nipTarget !== "0") {
+    var lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      // Kolom C adalah NIP (kolom ke-3)
+      var nipValues = sheet.getRange(2, 3, lastRow - 1, 1).getValues();
+      for (var r = 0; r < nipValues.length; r++) {
+        var existingNip = String(nipValues[r][0] || "").trim().replace(/[\s\.\-]/g, "");
+        if (existingNip === nipTarget) {
+          existingRowIndex = r + 2; // Baris 1-indexed dan baris 1 adalah header
+          break;
+        }
+      }
+    }
+  }
+
+  if (existingRowIndex > 0) {
+    // Jika NIP sudah ada, perbarui baris yang ada (tidak membuat duplikasi)
+    sheet.getRange(existingRowIndex, 1, 1, row.length).setValues([row]);
+    Logger.log("✓ Data NIP " + nipTarget + " sudah ada di baris " + existingRowIndex + ". Berhasil diperbarui (Anti-Duplikasi).");
+  } else {
+    // Jika NIP baru, tambahkan baris baru
+    sheet.appendRow(row);
+    Logger.log("✓ Berhasil menulis data baru ke Sheet Data_Responden.");
+  }
 }
 
-// SINKRONISASI REAL-TIME: Mengirim data seluruh baris Spreadsheet ke Dashboard Admin BKPSDM
+// SINKRONISASI REAL-TIME DENGAN ANTI-DUPLIKASI: Mengirim data unik ke Dashboard Admin
 function doGet(e) {
   var lock = LockService.getScriptLock();
   lock.tryLock(10000);
@@ -177,7 +206,7 @@ function doGet(e) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName("Data_Responden");
 
-    // Jika sheet belum ada atau hanya ada header (0 atau 1 baris)
+    // Jika sheet belum ada atau hanya ada header
     if (!sheet || sheet.getLastRow() <= 1) {
       return ContentService.createTextOutput(
         JSON.stringify({
@@ -191,11 +220,22 @@ function doGet(e) {
 
     var values = sheet.getDataRange().getValues();
     var records = [];
+    var seenKeys = {};
 
-    // Mulai dari baris ke-2 (index 1) karena baris ke-1 adalah judul kolom
-    for (var i = 1; i < values.length; i++) {
+    // Scan dari baris paling bawah ke atas (data submit paling baru diperiksa lebih awal)
+    for (var i = values.length - 1; i >= 1; i--) {
       var row = values[i];
       if (!row[1] && !row[2]) continue; // Lewati jika nama dan NIP kosong
+
+      var nipKey = String(row[2] || "").trim().replace(/[\s\.\-]/g, "");
+      var nameKey = String(row[1] || "").trim().toLowerCase();
+      var uniqueKey = nipKey && nipKey !== "-" && nipKey !== "0" ? "nip:" + nipKey : "name:" + nameKey;
+
+      // ANTI-DUPLIKASI: Jika ASN ini sudah masuk dari baris yang lebih baru, lewati baris lamanya
+      if (seenKeys[uniqueKey]) {
+        continue;
+      }
+      seenKeys[uniqueKey] = true;
 
       var timeStr = "";
       if (row[0] instanceof Date) {
@@ -254,7 +294,7 @@ function doGet(e) {
         }
       };
 
-      records.unshift(record); // Data submit terbaru tampil paling atas
+      records.push(record);
     }
 
     return ContentService.createTextOutput(
@@ -262,6 +302,7 @@ function doGet(e) {
         status: "success",
         total: records.length,
         records: records,
+        antiDuplication: true,
         lastUpdated: Utilities.formatDate(new Date(), "Asia/Jakarta", "dd/MM/yyyy HH:mm:ss")
       })
     ).setMimeType(ContentService.MimeType.JSON);
@@ -274,6 +315,36 @@ function doGet(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// Fungsi Opsional: Hapus baris lama yang duplikat langsung di Sheet Spreadsheet
+function bersihkanDuplikasiDiSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Data_Responden");
+  if (!sheet || sheet.getLastRow() <= 2) return;
+
+  var values = sheet.getDataRange().getValues();
+  var seenKeys = {};
+  var rowsToDelete = [];
+
+  // Dari baris bawah ke atas
+  for (var i = values.length - 1; i >= 1; i--) {
+    var nip = String(values[i][2] || "").trim().replace(/[\s\.\-]/g, "");
+    var name = String(values[i][1] || "").trim().toLowerCase();
+    var key = nip && nip !== "-" && nip !== "0" ? "nip:" + nip : "name:" + name;
+
+    if (seenKeys[key]) {
+      rowsToDelete.push(i + 1);
+    } else {
+      seenKeys[key] = true;
+    }
+  }
+
+  for (var d = 0; d < rowsToDelete.length; d++) {
+    sheet.deleteRow(rowsToDelete[d]);
+  }
+
+  Logger.log("Selesai. Telah menghapus " + rowsToDelete.length + " baris duplikasi lama.");
 }
 
 // Fungsi pengujian manual
@@ -298,31 +369,28 @@ function testTulisKeSheet() {
     khususPertanian: ["Hortikultura & Sayuran (Cabai, Tomat, Bawang)"],
     asetTersedia: ["Lahan / Tanah sendiri"],
     kepemilikanLahan: "Ya, milik sendiri",
-    perkiraanLuasLahan: "500 - 1.000 m2",
-    kendaraanTersedia: ["Mobil Pick-up"],
-    modalPribadi: "Rp50 - 100 juta",
-    sumberModal: ["Tabungan pribadi"],
-    tambahModal: "Ya, jika ada prospek jelas",
-    waktuHarian: "4 - 6 jam per hari",
-    modelKeterlibatan: "Kelola sendiri sepenuhnya (Operasional langsung)",
+    perkiraanLuasLahan: "1.000 - 5.000 m²",
+    kendaraanTersedia: ["Mobil Pribadi / Niaga (Pick up/Blind van)"],
+    modalPribadi: "Rp 50 Juta - Rp 100 Juta",
+    sumberModal: ["Tabungan Pribadi"],
+    tambahModal: "Ya, siap menambah jika prospek jelas",
+    waktuHarian: "Penuh Waktu (Full-time > 6 jam/hari)",
+    modelKeterlibatan: "Pemilik & Pengelola Langsung (Hands-on)",
     kesediaanPelatihan: 5,
-    topikPelatihan: ["Penyusunan Business Plan & Studi Kelayakan"],
-    bentukPendampingan: ["Pelatihan teknis langsung di lokasi usaha (Field visit)"],
+    topikPelatihan: ["Teknis Budidaya Terstandar"],
+    bentukPendampingan: ["Bimbingan Teknis Lapangan Intensif"],
     kesediaanPendampingan: "Ya, sangat bersedia",
-    kendalaTerbesar: ["Pemasaran / Pembeli"],
-    harapanBKPSDM: "Bimbingan teknis dan kemitraan pasar yang berkelanjutan",
+    kendalaTerbesar: ["Pemasaran dan Penjualan"],
+    harapanBKPSDM: "Fasilitasi kemitraan pasar dan pendampingan lapangan.",
     scoring: {
-      totalScore: 88,
+      totalScore: 82,
       category: "Sangat Siap",
-      interpretation: "Prioritas Inkubasi / Kemitraan Usaha",
+      interpretation: "Tingkat kesiapan prapensiun optimal untuk inkubasi usaha.",
       priorityLevel: "Tinggi",
-      recommendation: "Direkomendasikan masuk Program Inkubasi Usaha Mandiri BKPSDM."
+      recommendation: "Direkomendasikan masuk Inkubator Usaha Prioritas BKPSDM."
     }
   };
 
   simpanKeSheet(ss, contohData);
-
-  return ContentService.createTextOutput(
-    JSON.stringify({ status: "success", message: "Data contoh uji coba berhasil ditulis ke Google Sheets." })
-  ).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput("Uji coba anti-duplikasi simpanKeSheet berhasil dijalankan.").setMimeType(ContentService.MimeType.TEXT);
 }

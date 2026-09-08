@@ -205,5 +205,56 @@ export async function parseRespondentExcel(file: File): Promise<RespondentRecord
     });
   }
 
-  return records;
+  // Hilangkan duplikasi data sehingga 1 NIP/ASN hanya tercatat 1 kali (versi termutakhir)
+  return deduplicateRespondentRecords(records);
+}
+
+// 4. Parser Tanggal Aman (Mendukung format Indonesia dd/mm/yyyy atau ISO)
+export function parseSafeTimestamp(str: string): number {
+  if (!str) return 0;
+  const m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:,\s*(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (m) {
+    const day = parseInt(m[1], 10);
+    const month = parseInt(m[2], 10) - 1;
+    const year = parseInt(m[3], 10);
+    const hour = m[4] ? parseInt(m[4], 10) : 0;
+    const min = m[5] ? parseInt(m[5], 10) : 0;
+    const sec = m[6] ? parseInt(m[6], 10) : 0;
+    return new Date(year, month, day, hour, min, sec).getTime();
+  }
+  const parsed = Date.parse(str);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+// 5. Pembersih Duplikasi Responden (1 ASN / 1 NIP = 1 Rekor Terkini)
+export function deduplicateRespondentRecords(records: RespondentRecord[]): RespondentRecord[] {
+  if (!records || records.length === 0) return [];
+
+  const map = new Map<string, { time: number; record: RespondentRecord }>();
+
+  for (const r of records) {
+    const rawNip = (r.data?.nip || '').trim().replace(/[\s\.\-]/g, '');
+    const rawName = (r.data?.nama || '').trim().toLowerCase();
+
+    // Kunci unik: NIP resmi (jika ada dan bukan '-' / '0'), fallback ke Nama
+    const key = rawNip && rawNip !== '-' && rawNip !== '0'
+      ? `nip:${rawNip}`
+      : rawName && rawName !== '-'
+      ? `nama:${rawName}`
+      : `id:${r.id}`;
+
+    const curTime = parseSafeTimestamp(r.timestamp);
+
+    if (!map.has(key)) {
+      map.set(key, { time: curTime, record: r });
+    } else {
+      const existing = map.get(key)!;
+      // Pertahankan data dengan waktu submit yang lebih mutakhir
+      if (curTime >= existing.time) {
+        map.set(key, { time: curTime, record: r });
+      }
+    }
+  }
+
+  return Array.from(map.values()).map((v) => v.record);
 }

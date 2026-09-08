@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { SurveyData, ScoringResult } from '../types/survey';
 import { MasterPegawai } from '../types/pegawai';
 import { DEFAULT_MASTER_PEGAWAI, downloadPegawaiTemplate, parsePegawaiExcel } from '../data/defaultPegawai';
-import { downloadAllRecordsExcel, parseRespondentExcel } from '../utils/excelBackup';
+import { downloadAllRecordsExcel, parseRespondentExcel, deduplicateRespondentRecords, downloadSingleSurveyExcel } from '../utils/excelBackup';
 import {
   LayoutDashboard,
   Users,
@@ -21,7 +21,12 @@ import {
   LogOut,
   Copy,
   Check,
-  Radio
+  Radio,
+  FileText,
+  ChevronRight,
+  ShieldCheck,
+  Eye,
+  X
 } from 'lucide-react';
 
 interface RespondentRecord {
@@ -44,21 +49,22 @@ interface AdminPortalProps {
 
 const APPS_SCRIPT_SOURCE = `/**
  * =========================================================================
- * GOOGLE APPS SCRIPT: CONNECTOR SURVEI ASN PRA-PENSIUN BKPSDM (VERSI REAL-TIME)
+ * GOOGLE APPS SCRIPT: CONNECTOR SURVEI ASN PRA-PENSIUN BKPSDM (VERSI ANTI-DUPLIKASI & REAL-TIME)
  * =========================================================================
- * Fitur:
- * 1. doPost : Menerima data kiriman survei dari responden dan mencatat ke Spreadsheet.
- * 2. doGet  : Mengirimkan seluruh data responden secara real-time ke Dashboard Admin.
+ * Fitur Utama:
+ * 1. doPost : Menerima submit survei. Dilengkapi ANTI-DUPLIKASI (otomatis update jika NIP sudah ada).
+ * 2. doGet  : Mengirimkan seluruh data responden unik real-time ke Dashboard Admin.
+ * 3. bersihkanDuplikasiDiSheet: Fungsi manual untuk membersihkan baris duplikasi di sheet jika ada.
  *
  * Panduan Update (Hanya 1 Menit):
- * 1. Buka file Google Spreadsheet Anda.
+ * 1. Buka Google Spreadsheet Anda.
  * 2. Di menu atas, klik: Extensions (Ekstensi) > Apps Script.
- * 3. Hapus semua kode yang ada di editor Apps Script, lalu TEMPEL SELURUH KODE INI.
- * 4. Klik ikon Simpan (Save/Disket).
- * 5. Klik tombol biru di kanan atas: "Deploy" (Terapkan) > "Manage deployments" (Kelola penerapan).
- * 6. Klik ikon Pensil (Edit) di samping deployment aktif Anda:
+ * 3. Hapus semua kode lama di editor, lalu TEMPEL SELURUH KODE INI.
+ * 4. Klik ikon Simpan (Disket).
+ * 5. Klik tombol biru di kanan atas: "Deploy" (Terapkan) > "Manage deployments".
+ * 6. Klik ikon Pensil (Edit):
  *    - Versi: Pilih "New version" (Versi baru).
- *    - Siapa yang memiliki akses (Who has access): "Anyone" (Siapa saja).
+ *    - Siapa yang memiliki akses: "Anyone" (Siapa saja).
  * 7. Klik "Deploy" (Terapkan).
  * =========================================================================
  */
@@ -82,7 +88,7 @@ function doPost(e) {
     simpanKeSheet(ss, data);
 
     return ContentService.createTextOutput(
-      JSON.stringify({ status: "success", message: "Data survei ASN berhasil disimpan ke Google Sheets." })
+      JSON.stringify({ status: "success", message: "Data survei ASN berhasil disimpan ke Google Sheets (Anti-Duplikasi Aktif)." })
     ).setMimeType(ContentService.MimeType.JSON);
 
   } catch (error) {
@@ -95,7 +101,7 @@ function doPost(e) {
   }
 }
 
-// Fungsi pembantu penyimpanan ke Sheet Data_Responden
+// Fungsi pembantu penyimpanan ke Sheet Data_Responden (Dengan Proteksi Anti-Duplikasi NIP)
 function simpanKeSheet(ss, data) {
   var sheet = ss.getSheetByName("Data_Responden");
   
@@ -208,11 +214,39 @@ function simpanKeSheet(ss, data) {
     data.scoring ? data.scoring.recommendation : "-"
   ];
 
-  sheet.appendRow(row);
-  Logger.log("✓ Berhasil menulis data ke Sheet Data_Responden.");
+  // ==========================================
+  // ANTI-DUPLIKASI: Cek keberadaan NIP di Sheet
+  // ==========================================
+  var nipTarget = String(data.nip || "").trim().replace(/[\s\.\-]/g, "");
+  var existingRowIndex = -1;
+
+  if (nipTarget && nipTarget !== "-" && nipTarget !== "0") {
+    var lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      // Kolom C adalah NIP (kolom ke-3)
+      var nipValues = sheet.getRange(2, 3, lastRow - 1, 1).getValues();
+      for (var r = 0; r < nipValues.length; r++) {
+        var existingNip = String(nipValues[r][0] || "").trim().replace(/[\s\.\-]/g, "");
+        if (existingNip === nipTarget) {
+          existingRowIndex = r + 2; // Baris 1-indexed dan baris 1 adalah header
+          break;
+        }
+      }
+    }
+  }
+
+  if (existingRowIndex > 0) {
+    // Jika NIP sudah ada, perbarui baris yang ada (tidak membuat duplikasi)
+    sheet.getRange(existingRowIndex, 1, 1, row.length).setValues([row]);
+    Logger.log("✓ Data NIP " + nipTarget + " sudah ada di baris " + existingRowIndex + ". Berhasil diperbarui (Anti-Duplikasi).");
+  } else {
+    // Jika NIP baru, tambahkan baris baru
+    sheet.appendRow(row);
+    Logger.log("✓ Berhasil menulis data baru ke Sheet Data_Responden.");
+  }
 }
 
-// SINKRONISASI REAL-TIME: Mengirim data seluruh baris Spreadsheet ke Dashboard Admin BKPSDM
+// SINKRONISASI REAL-TIME DENGAN ANTI-DUPLIKASI: Mengirim data unik ke Dashboard Admin
 function doGet(e) {
   var lock = LockService.getScriptLock();
   lock.tryLock(10000);
@@ -221,7 +255,7 @@ function doGet(e) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName("Data_Responden");
 
-    // Jika sheet belum ada atau hanya ada header (0 atau 1 baris)
+    // Jika sheet belum ada atau hanya ada header
     if (!sheet || sheet.getLastRow() <= 1) {
       return ContentService.createTextOutput(
         JSON.stringify({
@@ -235,11 +269,22 @@ function doGet(e) {
 
     var values = sheet.getDataRange().getValues();
     var records = [];
+    var seenKeys = {};
 
-    // Mulai dari baris ke-2 (index 1) karena baris ke-1 adalah judul kolom
-    for (var i = 1; i < values.length; i++) {
+    // Scan dari baris paling bawah ke atas (data submit paling baru diperiksa lebih awal)
+    for (var i = values.length - 1; i >= 1; i--) {
       var row = values[i];
       if (!row[1] && !row[2]) continue; // Lewati jika nama dan NIP kosong
+
+      var nipKey = String(row[2] || "").trim().replace(/[\s\.\-]/g, "");
+      var nameKey = String(row[1] || "").trim().toLowerCase();
+      var uniqueKey = nipKey && nipKey !== "-" && nipKey !== "0" ? "nip:" + nipKey : "name:" + nameKey;
+
+      // ANTI-DUPLIKASI: Jika ASN ini sudah masuk dari baris yang lebih baru, lewati baris lamanya
+      if (seenKeys[uniqueKey]) {
+        continue;
+      }
+      seenKeys[uniqueKey] = true;
 
       var timeStr = "";
       if (row[0] instanceof Date) {
@@ -298,7 +343,7 @@ function doGet(e) {
         }
       };
 
-      records.unshift(record); // Data submit terbaru tampil paling atas
+      records.push(record);
     }
 
     return ContentService.createTextOutput(
@@ -306,6 +351,7 @@ function doGet(e) {
         status: "success",
         total: records.length,
         records: records,
+        antiDuplication: true,
         lastUpdated: Utilities.formatDate(new Date(), "Asia/Jakarta", "dd/MM/yyyy HH:mm:ss")
       })
     ).setMimeType(ContentService.MimeType.JSON);
@@ -318,6 +364,36 @@ function doGet(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// Fungsi Opsional: Hapus baris lama yang duplikat langsung di Sheet Spreadsheet
+function bersihkanDuplikasiDiSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Data_Responden");
+  if (!sheet || sheet.getLastRow() <= 2) return;
+
+  var values = sheet.getDataRange().getValues();
+  var seenKeys = {};
+  var rowsToDelete = [];
+
+  // Dari baris bawah ke atas
+  for (var i = values.length - 1; i >= 1; i--) {
+    var nip = String(values[i][2] || "").trim().replace(/[\s\.\-]/g, "");
+    var name = String(values[i][1] || "").trim().toLowerCase();
+    var key = nip && nip !== "-" && nip !== "0" ? "nip:" + nip : "name:" + name;
+
+    if (seenKeys[key]) {
+      rowsToDelete.push(i + 1);
+    } else {
+      seenKeys[key] = true;
+    }
+  }
+
+  for (var d = 0; d < rowsToDelete.length; d++) {
+    sheet.deleteRow(rowsToDelete[d]);
+  }
+
+  Logger.log("Selesai. Telah menghapus " + rowsToDelete.length + " baris duplikasi lama.");
 }
 
 // Fungsi pengujian manual
@@ -342,33 +418,30 @@ function testTulisKeSheet() {
     khususPertanian: ["Hortikultura & Sayuran (Cabai, Tomat, Bawang)"],
     asetTersedia: ["Lahan / Tanah sendiri"],
     kepemilikanLahan: "Ya, milik sendiri",
-    perkiraanLuasLahan: "500 - 1.000 m2",
-    kendaraanTersedia: ["Mobil Pick-up"],
-    modalPribadi: "Rp50 - 100 juta",
-    sumberModal: ["Tabungan pribadi"],
-    tambahModal: "Ya, jika ada prospek jelas",
-    waktuHarian: "4 - 6 jam per hari",
-    modelKeterlibatan: "Kelola sendiri sepenuhnya (Operasional langsung)",
+    perkiraanLuasLahan: "1.000 - 5.000 m²",
+    kendaraanTersedia: ["Mobil Pribadi / Niaga (Pick up/Blind van)"],
+    modalPribadi: "Rp 50 Juta - Rp 100 Juta",
+    sumberModal: ["Tabungan Pribadi"],
+    tambahModal: "Ya, siap menambah jika prospek jelas",
+    waktuHarian: "Penuh Waktu (Full-time > 6 jam/hari)",
+    modelKeterlibatan: "Pemilik & Pengelola Langsung (Hands-on)",
     kesediaanPelatihan: 5,
-    topikPelatihan: ["Penyusunan Business Plan & Studi Kelayakan"],
-    bentukPendampingan: ["Pelatihan teknis langsung di lokasi usaha (Field visit)"],
+    topikPelatihan: ["Teknis Budidaya Terstandar"],
+    bentukPendampingan: ["Bimbingan Teknis Lapangan Intensif"],
     kesediaanPendampingan: "Ya, sangat bersedia",
-    kendalaTerbesar: ["Pemasaran / Pembeli"],
-    harapanBKPSDM: "Bimbingan teknis dan kemitraan pasar yang berkelanjutan",
+    kendalaTerbesar: ["Pemasaran dan Penjualan"],
+    harapanBKPSDM: "Fasilitasi kemitraan pasar dan pendampingan lapangan.",
     scoring: {
-      totalScore: 88,
+      totalScore: 82,
       category: "Sangat Siap",
-      interpretation: "Prioritas Inkubasi / Kemitraan Usaha",
+      interpretation: "Tingkat kesiapan prapensiun optimal untuk inkubasi usaha.",
       priorityLevel: "Tinggi",
-      recommendation: "Direkomendasikan masuk Program Inkubasi Usaha Mandiri BKPSDM."
+      recommendation: "Direkomendasikan masuk Inkubator Usaha Prioritas BKPSDM."
     }
   };
 
   simpanKeSheet(ss, contohData);
-
-  return ContentService.createTextOutput(
-    JSON.stringify({ status: "success", message: "Data contoh uji coba berhasil ditulis ke Google Sheets." })
-  ).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput("Uji coba anti-duplikasi simpanKeSheet berhasil dijalankan.").setMimeType(ContentService.MimeType.TEXT);
 }
 `;
 
@@ -404,6 +477,18 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [lastSyncStatus, setLastSyncStatus] = useState<string | null>(null);
   const [copiedScript, setCopiedScript] = useState<boolean>(false);
 
+  // Modal Peminatan (Menampilkan nama-nama yang memilih bidang tertentu)
+  const [selectedMinatModal, setSelectedMinatModal] = useState<{
+    name: string;
+    icon: string;
+    key: string;
+    records: RespondentRecord[];
+  } | null>(null);
+  const [modalSearchQuery, setModalSearchQuery] = useState('');
+
+  // Modal Rincian Jawaban Lengkap Responden
+  const [selectedRespondentDetail, setSelectedRespondentDetail] = useState<RespondentRecord | null>(null);
+
   // Fungsi Sinkronisasi Real-Time dari Google Spreadsheet
   const fetchRealtimeFromGoogleSheets = async (isManual: boolean = false) => {
     if (!urlInput || urlInput.trim() === '') return;
@@ -416,11 +501,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       const result = await response.json();
 
       if (result && result.status === 'success' && Array.isArray(result.records)) {
-        setRecords(result.records);
-        localStorage.setItem('bkpsdm_survey_records', JSON.stringify(result.records));
-        setLastSyncStatus(`✓ Terhubung Real-Time: ${result.records.length} data responden termutakhir berhasil disinkronkan dari Google Spreadsheet (${result.lastUpdated || new Date().toLocaleTimeString('id-ID')}).`);
+        const cleanRecords = deduplicateRespondentRecords(result.records);
+        setRecords(cleanRecords);
+        localStorage.setItem('bkpsdm_survey_records', JSON.stringify(cleanRecords));
+        setLastSyncStatus(`✓ Terhubung Real-Time (Anti-Duplikasi Aktif): ${cleanRecords.length} responden unik berhasil disinkronkan (${result.lastUpdated || new Date().toLocaleTimeString('id-ID')}).`);
         if (isManual) {
-          alert(`Berhasil! ${result.records.length} data responden termutakhir telah ditarik secara real-time dari Google Spreadsheet.`);
+          alert(`Berhasil! ${cleanRecords.length} data responden unik termutakhir telah ditarik dari Google Spreadsheet (duplikasi otomatis dibersihkan).`);
         }
       } else if (result && result.message) {
         setLastSyncStatus(`Info: ${result.message}`);
@@ -437,7 +523,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     const saved = localStorage.getItem('bkpsdm_survey_records');
     if (saved) {
       try {
-        setRecords(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        const clean = deduplicateRespondentRecords(parsed);
+        setRecords(clean);
       } catch (e) {
         console.error(e);
       }
@@ -448,8 +536,20 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   }, [urlInput]);
 
   const saveRecords = (newRecords: RespondentRecord[]) => {
-    setRecords(newRecords);
-    localStorage.setItem('bkpsdm_survey_records', JSON.stringify(newRecords));
+    const clean = deduplicateRespondentRecords(newRecords);
+    setRecords(clean);
+    localStorage.setItem('bkpsdm_survey_records', JSON.stringify(clean));
+  };
+
+  const handleCleanDuplicates = () => {
+    const clean = deduplicateRespondentRecords(records);
+    const diff = records.length - clean.length;
+    saveRecords(clean);
+    if (diff > 0) {
+      alert(`Berhasil membersihkan ${diff} data duplikat! Sekarang terdapat ${clean.length} responden unik.`);
+    } else {
+      alert(`Data sudah bersih dan optimal! Seluruh ${clean.length} responden sudah unik (tidak ada duplikasi).`);
+    }
   };
 
   const handleSaveUrl = () => {
@@ -688,12 +788,27 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     document.body.removeChild(link);
   };
 
-  // Metrik KPI
+  // Metrik KPI & Filter Peminatan Interaktif
   const totalResponden = records.length;
-  const countMinat = (key: string) =>
-    records.filter((r) => (r.data.prioritasUtama || '').toLowerCase().includes(key.toLowerCase())).length;
   const countKategori = (kat: string) =>
     records.filter((r) => (r.score.category || '').toLowerCase() === kat.toLowerCase()).length;
+
+  const getRespondentsByMinat = (key: string): RespondentRecord[] => {
+    if (key === 'Kuliner' || key === 'Lainnya') {
+      const standardKeywords = ['pertanian', 'hidroponik', 'perikanan', 'ikan', 'perkebunan', 'peternakan', 'ekspedisi', 'pengiriman', 'grosir', 'sembako', 'cuci'];
+      return records.filter((r) => {
+        const p = (r.data?.prioritasUtama || '').toLowerCase();
+        return !standardKeywords.some((sk) => p.includes(sk));
+      });
+    }
+    const searchKeys = key.toLowerCase().split(/[&,/ ]+/).filter(Boolean);
+    return records.filter((r) => {
+      const p = (r.data?.prioritasUtama || '').toLowerCase();
+      return searchKeys.some((sk) => p.includes(sk));
+    });
+  };
+
+  const countMinat = (key: string) => getRespondentsByMinat(key).length;
 
   const filteredRecords = records.filter((r) => {
     const matchQuery =
@@ -859,42 +974,74 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </div>
           </div>
 
-          {/* Distribusi Peminatan */}
+          {/* Distribusi Peminatan Interaktif */}
           <div className="bg-white rounded-3xl border-2 border-slate-200 p-6 shadow-sm space-y-4">
-            <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-blue-800" />
-              Distribusi Peminatan Utama Usaha (Template Sheet 04)
-            </h3>
-            <div className="space-y-3 pt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-blue-800" />
+                  Distribusi Peminatan Utama Usaha (Template Sheet 04)
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  💡 <strong>Klik pada salah satu bidang usaha</strong> di bawah ini untuk melihat daftar nama ASN yang memilihnya.
+                </p>
+              </div>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-800 text-xs font-bold border border-blue-200 shrink-0 self-start sm:self-auto">
+                <span>Interaktif: Klik Bidang untuk Rincian Nama</span>
+              </span>
+            </div>
+
+            <div className="space-y-2 pt-1">
               {[
-                { name: 'Pertanian & Hidroponik', count: countMinat('Pertanian'), icon: '🌾' },
-                { name: 'Perikanan & Budidaya Ikan', count: countMinat('Perikanan'), icon: '🐟' },
-                { name: 'Perkebunan', count: countMinat('Perkebunan'), icon: '🌴' },
-                { name: 'Peternakan', count: countMinat('Peternakan'), icon: '🐄' },
-                { name: 'Ekspedisi & Pengiriman', count: countMinat('Ekspedisi'), icon: '📦' },
-                { name: 'Perdagangan Grosir Sembako', count: countMinat('Grosir'), icon: '🏪' },
-                { name: 'Cuci Kendaraan', count: countMinat('Cuci'), icon: '🚗' },
-                { name: 'Kuliner, Kos & Usaha Lainnya', count: totalResponden - (countMinat('Pertanian') + countMinat('Perikanan') + countMinat('Perkebunan') + countMinat('Peternakan') + countMinat('Ekspedisi') + countMinat('Grosir') + countMinat('Cuci')), icon: '🍽️' }
+                { name: 'Pertanian & Hidroponik', key: 'Pertanian', icon: '🌾' },
+                { name: 'Perikanan & Budidaya Ikan', key: 'Perikanan', icon: '🐟' },
+                { name: 'Perkebunan', key: 'Perkebunan', icon: '🌴' },
+                { name: 'Peternakan', key: 'Peternakan', icon: '🐄' },
+                { name: 'Ekspedisi & Pengiriman', key: 'Ekspedisi', icon: '📦' },
+                { name: 'Perdagangan Grosir Sembako', key: 'Grosir', icon: '🏪' },
+                { name: 'Cuci Kendaraan', key: 'Cuci', icon: '🚗' },
+                { name: 'Kuliner, Kos & Usaha Lainnya', key: 'Kuliner', icon: '🍽️' }
               ].map((item, i) => {
-                const pct = totalResponden > 0 ? Math.round((Math.max(0, item.count) / totalResponden) * 100) : 0;
+                const pemilih = getRespondentsByMinat(item.key);
+                const count = pemilih.length;
+                const pct = totalResponden > 0 ? Math.round((count / totalResponden) * 100) : 0;
                 return (
-                  <div key={i} className="space-y-1">
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => {
+                      setSelectedMinatModal({
+                        name: item.name,
+                        icon: item.icon,
+                        key: item.key,
+                        records: pemilih
+                      });
+                      setModalSearchQuery('');
+                    }}
+                    className="w-full text-left p-3 rounded-2xl bg-white hover:bg-blue-50/70 border border-slate-200/80 hover:border-blue-300 shadow-2xs hover:shadow-xs transition duration-200 cursor-pointer group"
+                  >
                     <div className="flex justify-between items-center text-sm font-bold text-slate-800">
-                      <span className="flex items-center gap-2">
-                        <span>{item.icon}</span>
-                        <span>{item.name}</span>
+                      <span className="flex items-center gap-2 group-hover:text-blue-900 transition">
+                        <span className="text-lg p-1 rounded-lg bg-slate-50 group-hover:bg-blue-100 transition">{item.icon}</span>
+                        <span className="font-extrabold">{item.name}</span>
                       </span>
-                      <span className="text-blue-900 font-extrabold">
-                        {Math.max(0, item.count)} ({pct}%)
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-blue-700 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 bg-blue-100/70 px-2 py-0.5 rounded-md">
+                          <span>Lihat Nama</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </span>
+                        <span className="text-blue-950 font-black text-xs sm:text-sm bg-slate-100 group-hover:bg-blue-200/60 px-2.5 py-1 rounded-xl transition">
+                          {count} ({pct}%)
+                        </span>
+                      </div>
                     </div>
-                    <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                    <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200 mt-2">
                       <div
-                        className="h-full bg-gradient-to-r from-blue-700 to-indigo-600 rounded-full transition-all duration-500"
+                        className="h-full bg-gradient-to-r from-blue-700 via-indigo-600 to-blue-500 rounded-full transition-all duration-500"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -1020,7 +1167,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 <tbody className="divide-y divide-slate-200 bg-white">
                   {paginatedPegawai.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center text-slate-500 font-medium">
+                      <td colSpan={7} className="p-8 text-center text-slate-500 font-medium">
                         Tidak ada data pegawai yang cocok dengan kata kunci &quot;{searchPegawai}&quot;.
                       </td>
                     </tr>
@@ -1187,12 +1334,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <th className="p-3">Peminatan Utama</th>
                   <th className="p-3 text-center">Skor</th>
                   <th className="p-3">Status Kesiapan</th>
+                  <th className="p-3 text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
                 {filteredRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-slate-500 font-medium">
+                    <td colSpan={7} className="p-8 text-center text-slate-500 font-medium">
                       Belum ada data responden.
                     </td>
                   </tr>
@@ -1228,6 +1376,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         >
                           {r.score.category}
                         </span>
+                      </td>
+                      <td className="p-3 text-center whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRespondentDetail(r)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-950 hover:bg-blue-900 text-white font-bold text-xs transition cursor-pointer shadow-2xs"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Detail</span>
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -1467,6 +1625,311 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 className="w-full py-2.5 rounded-xl bg-blue-900 text-white font-bold text-xs shadow-xs hover:bg-blue-950 cursor-pointer"
               >
                 Muat ke Formulir & Buka
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 1: DAFTAR NAMA RESPONDEN PEMINAT BIDANG USAHA */}
+      {selectedMinatModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="p-6 bg-gradient-to-r from-blue-950 to-indigo-950 text-white flex items-start justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-200 text-xs font-bold border border-blue-400/30 mb-2">
+                  <span>{selectedMinatModal.icon}</span>
+                  <span>Bidang Usaha Pilihan</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                  <span>{selectedMinatModal.icon}</span>
+                  <span>{selectedMinatModal.name}</span>
+                </h3>
+                <p className="text-xs sm:text-sm text-blue-200 mt-1">
+                  Daftar nama pegawai ASN yang memilih bidang ini sebagai prioritas utama (Total: <strong>{selectedMinatModal.records.length} Responden</strong>)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedMinatModal(null)}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Filter pencarian dalam modal */}
+            {selectedMinatModal.records.length > 0 && (
+              <div className="p-4 bg-slate-50 border-b border-slate-200">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={modalSearchQuery}
+                    onChange={(e) => setModalSearchQuery(e.target.value)}
+                    placeholder="Cari nama, NIP, atau OPD pemilih di sini..."
+                    className="w-full pl-10 pr-4 py-2 text-xs sm:text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-800"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Konten daftar responden */}
+            <div className="p-6 overflow-y-auto space-y-3 flex-1">
+              {selectedMinatModal.records.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  <span className="text-3xl block mb-2">{selectedMinatModal.icon}</span>
+                  <p className="font-bold text-slate-700">Belum ada ASN yang memilih bidang ini</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Data akan otomatis bertambah ketika ada responden yang memilih opsi ini pada instrumen survei.
+                  </p>
+                </div>
+              ) : (
+                (() => {
+                  const filteredPemilih = selectedMinatModal.records.filter((r) => {
+                    const q = modalSearchQuery.toLowerCase();
+                    return (
+                      (r.data.nama || '').toLowerCase().includes(q) ||
+                      (r.data.nip || '').toLowerCase().includes(q) ||
+                      (r.data.unitKerja || '').toLowerCase().includes(q) ||
+                      (r.data.jabatan || '').toLowerCase().includes(q)
+                    );
+                  });
+
+                  if (filteredPemilih.length === 0) {
+                    return (
+                      <div className="p-8 text-center text-slate-500 text-sm">
+                        Tidak ditemukan responden yang cocok dengan pencarian "{modalSearchQuery}".
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden">
+                      {filteredPemilih.map((r, idx) => (
+                        <div
+                          key={r.id || idx}
+                          className="p-4 bg-white hover:bg-blue-50/40 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                        >
+                          <div className="flex items-start gap-3">
+                            <span className="w-7 h-7 rounded-full bg-blue-100 text-blue-900 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                              {idx + 1}
+                            </span>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="font-black text-slate-900 text-sm">{r.data.nama}</h4>
+                                <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium">
+                                  NIP: {r.data.nip || '-'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-600 mt-0.5">
+                                {r.data.unitKerja} • <span className="text-slate-500">{r.data.jabatan}</span>
+                              </p>
+                              {r.data.alasanPrioritas && (
+                                <p className="text-[11px] text-slate-500 mt-1 italic line-clamp-1">
+                                  "{r.data.alasanPrioritas}"
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                            <span
+                              className={`text-xs font-black px-2.5 py-1 rounded-lg border ${
+                                r.score.category === 'Sangat Siap'
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                  : r.score.category === 'Siap'
+                                  ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                  : 'bg-amber-50 text-amber-800 border-amber-200'
+                              }`}
+                            >
+                              Skor: {r.score.totalScore} ({r.score.category})
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedRespondentDetail(r);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-blue-950 hover:bg-blue-900 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                            >
+                              <Eye className="w-3.5 h-3.5" /> Detail
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <span className="text-xs text-slate-500 font-medium">
+                Menampilkan {selectedMinatModal.records.length} ASN peminat {selectedMinatModal.name}
+              </span>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                {selectedMinatModal.records.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const searchWord = selectedMinatModal.name.split(' ')[0] || '';
+                      setSearchQuery(searchWord);
+                      setActiveTab('records');
+                      setSelectedMinatModal(null);
+                    }}
+                    className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-blue-100 hover:bg-blue-200 text-blue-950 font-bold text-xs transition cursor-pointer"
+                  >
+                    Buka di Tab Data Responden
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedMinatModal(null)}
+                  className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs transition cursor-pointer"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: DETAIL JAWABAN LENGKAP RESPONDEN */}
+      {selectedRespondentDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="p-6 bg-gradient-to-r from-blue-950 via-indigo-950 to-slate-900 text-white flex items-start justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-400/30 mb-2">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Rekam Jawaban Survei ASN</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black text-white">
+                  {selectedRespondentDetail.data.nama}
+                </h3>
+                <p className="text-xs sm:text-sm text-blue-200 mt-0.5">
+                  NIP: <span className="font-mono font-bold text-amber-300">{selectedRespondentDetail.data.nip || '-'}</span> • {selectedRespondentDetail.data.unitKerja}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedRespondentDetail(null)}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs sm:text-sm">
+              {/* Ringkasan Skor */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Hasil Asesmen Kesiapan</span>
+                  <div className="flex items-center gap-3 mt-1 flex-wrap">
+                    <span className="text-3xl font-black text-blue-950">{selectedRespondentDetail.score.totalScore}/100</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                      selectedRespondentDetail.score.category === 'Sangat Siap'
+                        ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                        : selectedRespondentDetail.score.category === 'Siap'
+                        ? 'bg-blue-100 text-blue-900 border-blue-300'
+                        : 'bg-amber-100 text-amber-900 border-amber-300'
+                    }`}>
+                      {selectedRespondentDetail.score.category}
+                    </span>
+                    <span className="text-xs font-semibold text-slate-600">
+                      Prioritas: <strong>{selectedRespondentDetail.score.priorityLevel}</strong>
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Rekomendasi: <strong>{selectedRespondentDetail.score.recommendation}</strong>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => downloadSingleSurveyExcel(selectedRespondentDetail.data, selectedRespondentDetail.score)}
+                  className="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition flex items-center gap-2 shrink-0 cursor-pointer"
+                >
+                  <Download className="w-4 h-4" /> Unduh Berkas Excel (.xlsx)
+                </button>
+              </div>
+
+              {/* Rincian Grid Jawaban */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Identitas */}
+                <div className="p-4 rounded-2xl border border-slate-200 space-y-2 bg-white">
+                  <h5 className="font-black text-xs uppercase tracking-wider text-blue-950 border-b border-slate-100 pb-1">
+                    A. Identitas & Profil Pegawai
+                  </h5>
+                  <div className="space-y-1 text-slate-700">
+                    <p><strong>Jabatan:</strong> {selectedRespondentDetail.data.jabatan || '-'}</p>
+                    <p><strong>Tahun Pensiun:</strong> {selectedRespondentDetail.data.tahunPensiun || '-'}</p>
+                    <p><strong>Usia:</strong> {selectedRespondentDetail.data.usia || '-'} Tahun</p>
+                    <p><strong>Pendidikan:</strong> {selectedRespondentDetail.data.pendidikan || '-'}</p>
+                    <p><strong>Rencana Domisili:</strong> {selectedRespondentDetail.data.domisili || '-'}</p>
+                    <p><strong>Waktu Submit:</strong> {selectedRespondentDetail.timestamp}</p>
+                  </div>
+                </div>
+
+                {/* Peminatan & Keyakinan */}
+                <div className="p-4 rounded-2xl border border-slate-200 space-y-2 bg-white">
+                  <h5 className="font-black text-xs uppercase tracking-wider text-blue-950 border-b border-slate-100 pb-1">
+                    B. Peminatan & Pengalaman Usaha
+                  </h5>
+                  <div className="space-y-1 text-slate-700">
+                    <p><strong>Peminatan Utama:</strong> <span className="font-bold text-blue-900">{selectedRespondentDetail.data.prioritasUtama || '-'}</span></p>
+                    <p><strong>Alasan:</strong> {selectedRespondentDetail.data.alasanPrioritas || '-'}</p>
+                    <p><strong>Tingkat Keyakinan:</strong> {selectedRespondentDetail.data.keyakinanUsaha}/5</p>
+                    <p><strong>Pengalaman Usaha:</strong> {selectedRespondentDetail.data.pengalamanUsaha || '-'}</p>
+                    <p><strong>Keterampilan:</strong> {Array.isArray(selectedRespondentDetail.data.keterampilan) ? selectedRespondentDetail.data.keterampilan.join(', ') : '-'}</p>
+                  </div>
+                </div>
+
+                {/* Aset & Finansial */}
+                <div className="p-4 rounded-2xl border border-slate-200 space-y-2 bg-white">
+                  <h5 className="font-black text-xs uppercase tracking-wider text-blue-950 border-b border-slate-100 pb-1">
+                    C. Kesiapan Aset & Modal
+                  </h5>
+                  <div className="space-y-1 text-slate-700">
+                    <p><strong>Aset Dimiliki:</strong> {Array.isArray(selectedRespondentDetail.data.asetTersedia) ? selectedRespondentDetail.data.asetTersedia.join(', ') : '-'}</p>
+                    <p><strong>Kepemilikan Lahan:</strong> {selectedRespondentDetail.data.kepemilikanLahan || '-'}</p>
+                    <p><strong>Luas Lahan:</strong> {selectedRespondentDetail.data.perkiraanLuasLahan || '-'}</p>
+                    <p><strong>Kendaraan:</strong> {Array.isArray(selectedRespondentDetail.data.kendaraanTersedia) ? selectedRespondentDetail.data.kendaraanTersedia.join(', ') : '-'}</p>
+                    <p><strong>Modal Pribadi Siap Alokasi:</strong> {selectedRespondentDetail.data.modalPribadi || '-'}</p>
+                    <p><strong>Sumber Modal:</strong> {Array.isArray(selectedRespondentDetail.data.sumberModal) ? selectedRespondentDetail.data.sumberModal.join(', ') : '-'}</p>
+                  </div>
+                </div>
+
+                {/* Waktu & Program BKPSDM */}
+                <div className="p-4 rounded-2xl border border-slate-200 space-y-2 bg-white">
+                  <h5 className="font-black text-xs uppercase tracking-wider text-blue-950 border-b border-slate-100 pb-1">
+                    D. Waktu & Harapan ke BKPSDM
+                  </h5>
+                  <div className="space-y-1 text-slate-700">
+                    <p><strong>Waktu Harian:</strong> {selectedRespondentDetail.data.waktuHarian || '-'}</p>
+                    <p><strong>Model Keterlibatan:</strong> {selectedRespondentDetail.data.modelKeterlibatan || '-'}</p>
+                    <p><strong>Kesediaan Pelatihan:</strong> {selectedRespondentDetail.data.kesediaanPelatihan}/5</p>
+                    <p><strong>Topik Pelatihan:</strong> {Array.isArray(selectedRespondentDetail.data.topikPelatihan) ? selectedRespondentDetail.data.topikPelatihan.join(', ') : '-'}</p>
+                    <p><strong>Bentuk Pendampingan:</strong> {Array.isArray(selectedRespondentDetail.data.bentukPendampingan) ? selectedRespondentDetail.data.bentukPendampingan.join(', ') : '-'}</p>
+                    <p><strong>Kendala Terbesar:</strong> {Array.isArray(selectedRespondentDetail.data.kendalaTerbesar) ? selectedRespondentDetail.data.kendalaTerbesar.join(', ') : '-'}</p>
+                    <p><strong>Harapan ke BKPSDM:</strong> {selectedRespondentDetail.data.harapanBKPSDM || '-'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedRespondentDetail(null)}
+                className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition cursor-pointer"
+              >
+                Tutup
               </button>
             </div>
           </div>

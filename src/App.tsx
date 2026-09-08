@@ -329,9 +329,25 @@ export function App() {
     };
 
     try {
-      const existing = JSON.parse(localStorage.getItem('bkpsdm_survey_records') || '[]');
-      existing.unshift(newRecord);
-      localStorage.setItem('bkpsdm_survey_records', JSON.stringify(existing));
+      const existing: any[] = JSON.parse(localStorage.getItem('bkpsdm_survey_records') || '[]');
+      const cleanNip = (sanitizedData.nip || '').trim().replace(/[\s\.\-]/g, '');
+      const cleanNama = (sanitizedData.nama || '').trim().toLowerCase();
+
+      // Hapus data lama milik ASN ini jika sudah ada (Anti-Duplikasi, 1 ASN = 1 Data Terkini)
+      const filteredExisting = existing.filter((item: any) => {
+        const itemNip = (item.data?.nip || '').trim().replace(/[\s\.\-]/g, '');
+        const itemNama = (item.data?.nama || '').trim().toLowerCase();
+        if (cleanNip && cleanNip !== '-' && cleanNip !== '0') {
+          return itemNip !== cleanNip;
+        }
+        if (cleanNama && cleanNama !== '-') {
+          return itemNama !== cleanNama;
+        }
+        return true;
+      });
+
+      filteredExisting.unshift(newRecord);
+      localStorage.setItem('bkpsdm_survey_records', JSON.stringify(filteredExisting));
     } catch (e) {
       console.error(e);
     }
