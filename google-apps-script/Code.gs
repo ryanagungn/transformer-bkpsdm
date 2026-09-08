@@ -1,22 +1,21 @@
 /**
  * =========================================================================
- * GOOGLE APPS SCRIPT: CONNECTOR SURVEI ASN PRA-PENSIUN BKPSDM
+ * GOOGLE APPS SCRIPT: CONNECTOR SURVEI ASN PRA-PENSIUN BKPSDM (VERSI REAL-TIME)
  * =========================================================================
- * Panduan Pemasangan (Hanya 1 Menit):
- * 1. Buka Google Drive Anda (drive.google.com).
- * 2. Buat file baru: Google Spreadsheet (beri nama misal: "Database Survei Usaha ASN BKPSDM").
- * 3. Di menu atas, klik: Extensions (Ekstensi) > Apps Script.
- * 4. Hapus semua kode yang ada di editor Apps Script, lalu TEMPEL SELURUH KODE DI BAWAH INI.
- * 5. Klik ikon Simpan (Save/Disket).
- * 6. Klik tombol biru di kanan atas: "Deploy" (Terapkan) > "New deployment" (Penerapan baru).
- * 7. Pilih tipe: "Web app" (ikon roda gigi > Web app).
- * 8. Pada konfigurasi:
- *    - Description: "Survei BKPSDM Webhook"
- *    - Execute as: "Me" (email Anda)
- *    - Who has access: "Anyone" (Siapa saja - agar website Vercel bisa mengirim data tanpa login)
- * 9. Klik "Deploy". Jika diminta otorisasi, klik "Authorize access" > pilih akun Anda > "Advanced" > "Go to ... (unsafe)".
- * 10. Salin URL "Web app URL" yang muncul (berakhiran /exec).
- * 11. Masukkan URL tersebut ke konfigurasi website Vercel Anda!
+ * Fitur:
+ * 1. doPost : Menerima data kiriman survei dari responden dan mencatat ke Spreadsheet.
+ * 2. doGet  : Mengirimkan seluruh data responden secara real-time ke Dashboard Admin.
+ *
+ * Panduan Update (Hanya 1 Menit):
+ * 1. Buka file Google Spreadsheet Anda.
+ * 2. Di menu atas, klik: Extensions (Ekstensi) > Apps Script.
+ * 3. Hapus semua kode yang ada di editor Apps Script, lalu TEMPEL SELURUH KODE INI.
+ * 4. Klik ikon Simpan (Save/Disket).
+ * 5. Klik tombol biru di kanan atas: "Deploy" (Terapkan) > "Manage deployments" (Kelola penerapan).
+ * 6. Klik ikon Pensil (Edit) di samping deployment aktif Anda:
+ *    - Versi: Pilih "New version" (Versi baru).
+ *    - Siapa yang memiliki akses (Who has access): "Anyone" (Siapa saja).
+ * 7. Klik "Deploy" (Terapkan).
  * =========================================================================
  */
 
@@ -169,8 +168,115 @@ function simpanKeSheet(ss, data) {
   Logger.log("✓ Berhasil menulis data ke Sheet Data_Responden.");
 }
 
-// Fungsi ini BISA diklik langsung lewat tombol "▷ Jalankan" di Google Apps Script editor
-// untuk langsung membuat sheet dan menulis 1 baris data contoh ke Spreadsheet!
+// SINKRONISASI REAL-TIME: Mengirim data seluruh baris Spreadsheet ke Dashboard Admin BKPSDM
+function doGet(e) {
+  var lock = LockService.getScriptLock();
+  lock.tryLock(10000);
+
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName("Data_Responden");
+
+    // Jika sheet belum ada atau hanya ada header (0 atau 1 baris)
+    if (!sheet || sheet.getLastRow() <= 1) {
+      return ContentService.createTextOutput(
+        JSON.stringify({
+          status: "success",
+          total: 0,
+          records: [],
+          message: "Sheet Data_Responden masih kosong atau hanya berisi baris header."
+        })
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var values = sheet.getDataRange().getValues();
+    var records = [];
+
+    // Mulai dari baris ke-2 (index 1) karena baris ke-1 adalah judul kolom
+    for (var i = 1; i < values.length; i++) {
+      var row = values[i];
+      if (!row[1] && !row[2]) continue; // Lewati jika nama dan NIP kosong
+
+      var timeStr = "";
+      if (row[0] instanceof Date) {
+        timeStr = Utilities.formatDate(row[0], "Asia/Jakarta", "dd/MM/yyyy, HH:mm:ss");
+      } else {
+        timeStr = String(row[0] || "-");
+      }
+
+      var totalScoreNum = Number(row[32]) || 0;
+      var categoryStr = String(row[33] || "-");
+      var colorStr = totalScoreNum >= 80 ? "emerald" : totalScoreNum >= 65 ? "blue" : totalScoreNum >= 50 ? "amber" : "slate";
+
+      var record = {
+        id: "GS-" + i,
+        timestamp: timeStr,
+        data: {
+          nama: String(row[1] || "-"),
+          nip: String(row[2] || "-"),
+          unitKerja: String(row[3] || "-"),
+          jabatan: String(row[4] || "-"),
+          tahunPensiun: String(row[5] || "-"),
+          usia: String(row[6] || "-"),
+          pendidikan: String(row[7] || "-"),
+          domisili: String(row[8] || "-"),
+          pengalamanUsaha: String(row[9] || "-"),
+          bidangPernahDijalankan: row[10] ? String(row[10]).split(", ") : [],
+          keterampilan: row[11] ? String(row[11]).split(", ") : [],
+          bidangDiminati: row[12] ? String(row[12]).split(", ") : [],
+          prioritasUtama: String(row[13] || "-"),
+          alasanPrioritas: String(row[14] || "-"),
+          keyakinanUsaha: Number(row[15]) || 0,
+          asetTersedia: row[17] ? String(row[17]).split(", ") : [],
+          kepemilikanLahan: String(row[18] || "-"),
+          perkiraanLuasLahan: String(row[19] || "-"),
+          kendaraanTersedia: row[20] ? String(row[20]).split(", ") : [],
+          modalPribadi: String(row[21] || "-"),
+          sumberModal: row[22] ? String(row[22]).split(", ") : [],
+          tambahModal: String(row[23] || "-"),
+          waktuHarian: String(row[24] || "-"),
+          modelKeterlibatan: String(row[25] || "-"),
+          kesediaanPelatihan: Number(row[26]) || 0,
+          topikPelatihan: row[27] ? String(row[27]).split(", ") : [],
+          bentukPendampingan: row[28] ? String(row[28]).split(", ") : [],
+          kesediaanPendampingan: String(row[29] || "-"),
+          kendalaTerbesar: row[30] ? String(row[30]).split(", ") : [],
+          harapanBKPSDM: String(row[31] || "-")
+        },
+        score: {
+          totalScore: totalScoreNum,
+          category: categoryStr,
+          interpretation: String(row[34] || "-"),
+          priorityLevel: String(row[35] || "Sedang"),
+          recommendation: String(row[36] || "-"),
+          color: colorStr,
+          dimensions: []
+        }
+      };
+
+      records.unshift(record); // Data submit terbaru tampil paling atas
+    }
+
+    return ContentService.createTextOutput(
+      JSON.stringify({
+        status: "success",
+        total: records.length,
+        records: records,
+        lastUpdated: Utilities.formatDate(new Date(), "Asia/Jakarta", "dd/MM/yyyy HH:mm:ss")
+      })
+    ).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    Logger.log("Error doGet: " + error.toString());
+    return ContentService.createTextOutput(
+      JSON.stringify({ status: "error", message: error.toString() })
+    ).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Fungsi pengujian manual
 function testTulisKeSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var contohData = {
@@ -200,7 +306,7 @@ function testTulisKeSheet() {
     waktuHarian: "4 - 6 jam per hari",
     modelKeterlibatan: "Kelola sendiri sepenuhnya (Operasional langsung)",
     kesediaanPelatihan: 5,
-    topikPelatihan: ["Penyusunan Business Plan & Studi Kelayakan", "Teknik Budidaya & Produksi Efisien"],
+    topikPelatihan: ["Penyusunan Business Plan & Studi Kelayakan"],
     bentukPendampingan: ["Pelatihan teknis langsung di lokasi usaha (Field visit)"],
     kesediaanPendampingan: "Ya, sangat bersedia",
     kendalaTerbesar: ["Pemasaran / Pembeli"],
@@ -218,12 +324,5 @@ function testTulisKeSheet() {
 
   return ContentService.createTextOutput(
     JSON.stringify({ status: "success", message: "Data contoh uji coba berhasil ditulis ke Google Sheets." })
-  ).setMimeType(ContentService.MimeType.JSON);
-}
-
-// Untuk tes akses via browser
-function doGet(e) {
-  return ContentService.createTextOutput(
-    JSON.stringify({ status: "ready", message: "Endpoint Google Apps Script Survei BKPSDM Aktif." })
   ).setMimeType(ContentService.MimeType.JSON);
 }

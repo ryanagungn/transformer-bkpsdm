@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { SurveyData, ScoringResult } from '../types/survey';
 import { MasterPegawai } from '../types/pegawai';
 import { DEFAULT_MASTER_PEGAWAI, downloadPegawaiTemplate, parsePegawaiExcel } from '../data/defaultPegawai';
-import { downloadAllRecordsExcel } from '../utils/excelBackup';
+import { downloadAllRecordsExcel, parseRespondentExcel } from '../utils/excelBackup';
 import {
   LayoutDashboard,
   Users,
@@ -18,7 +18,10 @@ import {
   FileSpreadsheet,
   UploadCloud,
   RefreshCw,
-  LogOut
+  LogOut,
+  Copy,
+  Check,
+  Radio
 } from 'lucide-react';
 
 interface RespondentRecord {
@@ -37,6 +40,337 @@ interface AdminPortalProps {
   onUpdateMasterPegawai: (data: MasterPegawai[]) => void;
   onLoadPresetToSurvey: (presetKey: string) => void;
 }
+
+
+const APPS_SCRIPT_SOURCE = `/**
+ * =========================================================================
+ * GOOGLE APPS SCRIPT: CONNECTOR SURVEI ASN PRA-PENSIUN BKPSDM (VERSI REAL-TIME)
+ * =========================================================================
+ * Fitur:
+ * 1. doPost : Menerima data kiriman survei dari responden dan mencatat ke Spreadsheet.
+ * 2. doGet  : Mengirimkan seluruh data responden secara real-time ke Dashboard Admin.
+ *
+ * Panduan Update (Hanya 1 Menit):
+ * 1. Buka file Google Spreadsheet Anda.
+ * 2. Di menu atas, klik: Extensions (Ekstensi) > Apps Script.
+ * 3. Hapus semua kode yang ada di editor Apps Script, lalu TEMPEL SELURUH KODE INI.
+ * 4. Klik ikon Simpan (Save/Disket).
+ * 5. Klik tombol biru di kanan atas: "Deploy" (Terapkan) > "Manage deployments" (Kelola penerapan).
+ * 6. Klik ikon Pensil (Edit) di samping deployment aktif Anda:
+ *    - Versi: Pilih "New version" (Versi baru).
+ *    - Siapa yang memiliki akses (Who has access): "Anyone" (Siapa saja).
+ * 7. Klik "Deploy" (Terapkan).
+ * =========================================================================
+ */
+
+function doPost(e) {
+  var lock = LockService.getScriptLock();
+  lock.tryLock(10000);
+
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // Jika tombol "Jalankan" diklik manual di editor Apps Script tanpa payload
+    if (!e || !e.postData || !e.postData.contents) {
+      Logger.log("doPost dipanggil manual tanpa payload. Menjalankan testTulisKeSheet()...");
+      return testTulisKeSheet();
+    }
+
+    var rawData = e.postData.contents;
+    var data = JSON.parse(rawData);
+
+    simpanKeSheet(ss, data);
+
+    return ContentService.createTextOutput(
+      JSON.stringify({ status: "success", message: "Data survei ASN berhasil disimpan ke Google Sheets." })
+    ).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    Logger.log("Error: " + error.toString());
+    return ContentService.createTextOutput(
+      JSON.stringify({ status: "error", message: error.toString() })
+    ).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Fungsi pembantu penyimpanan ke Sheet Data_Responden
+function simpanKeSheet(ss, data) {
+  var sheet = ss.getSheetByName("Data_Responden");
+  
+  // Jika sheet belum ada, buat otomatis
+  if (!sheet) {
+    sheet = ss.insertSheet("Data_Responden");
+  }
+
+  // Header Kolom Lengkap sesuai Instrumen BKPSDM (37 Kolom)
+  var headers = [
+    "Waktu Submit",
+    "Nama Lengkap",
+    "NIP/NIK",
+    "Perangkat Daerah / Unit Kerja",
+    "Jabatan Terakhir",
+    "Tahun Pensiun",
+    "Usia",
+    "Pendidikan Terakhir",
+    "Rencana Domisili",
+    "Pengalaman Usaha",
+    "Bidang Usaha Pernah/Sedang",
+    "Keterampilan Dimiliki",
+    "3 Bidang Paling Diminati",
+    "Prioritas Usaha Utama (MINAT_UTAMA)",
+    "Alasan Memilih Prioritas",
+    "Keyakinan Usaha (1-5)",
+    "Detail Subsektor Pilihan",
+    "Aset Tersedia",
+    "Kepemilikan Lahan",
+    "Perkiraan Luas Lahan",
+    "Kendaraan Tersedia",
+    "Modal Pribadi Siap Alokasi",
+    "Sumber Modal Rencana",
+    "Bersedia Tambah Modal",
+    "Waktu Harian untuk Usaha",
+    "Model Keterlibatan",
+    "Kesediaan Pelatihan (1-5)",
+    "Topik Pelatihan Dibutuhkan",
+    "Bentuk Pendampingan Dibutuhkan",
+    "Komitmen Pendampingan 6-12 Bln",
+    "Kendala Terbesar",
+    "Harapan terhadap BKPSDM",
+    "TOTAL SKOR (0-100)",
+    "Kategori Kesiapan",
+    "Interpretasi Hasil",
+    "Tingkat Prioritas",
+    "Rekomendasi Program"
+  ];
+
+  // Jika sheet masih kosong, tulis header baris pertama
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(headers);
+    var headerRange = sheet.getRange(1, 1, 1, headers.length);
+    headerRange.setFontWeight("bold");
+    headerRange.setBackground("#002060");
+    headerRange.setFontColor("#FFFFFF");
+    sheet.setFrozenRows(1);
+  }
+
+  // Ekstrak detail subsektor spesifik
+  var detailSubsektor = [
+    data.khususPertanian ? "Pertanian: " + data.khususPertanian.join(", ") : "",
+    data.khususPerikanan ? "Perikanan: " + data.khususPerikanan.join(", ") : "",
+    data.khususPerkebunan ? "Perkebunan: " + data.khususPerkebunan.join(", ") : "",
+    data.khususPeternakan ? "Peternakan: " + data.khususPeternakan.join(", ") : "",
+    data.khususEkspedisi ? "Ekspedisi: " + data.khususEkspedisi.join(", ") : "",
+    data.khususGrosir ? "Grosir: " + data.khususGrosir.join(", ") : "",
+    data.khususCuciKendaraan ? "Cuci: " + data.khususCuciKendaraan.join(", ") : "",
+    data.khususLainnya ? "Lainnya: " + data.khususLainnya.join(", ") : ""
+  ].filter(Boolean).join(" | ");
+
+  // Susun baris data baru
+  var row = [
+    new Date(),
+    data.nama || "-",
+    data.nip || "-",
+    data.unitKerja || "-",
+    data.jabatan || "-",
+    data.tahunPensiun || "-",
+    data.usia || "-",
+    data.pendidikan || "-",
+    data.domisili || "-",
+    data.pengalamanUsaha || "-",
+    Array.isArray(data.bidangPernahDijalankan) ? data.bidangPernahDijalankan.join(", ") : "-",
+    Array.isArray(data.keterampilan) ? data.keterampilan.join(", ") : "-",
+    Array.isArray(data.bidangDiminati) ? data.bidangDiminati.join(", ") : "-",
+    data.prioritasUtama || "-",
+    data.alasanPrioritas || "-",
+    data.keyakinanUsaha || "-",
+    detailSubsektor || "-",
+    Array.isArray(data.asetTersedia) ? data.asetTersedia.join(", ") : "-",
+    data.kepemilikanLahan || "-",
+    data.perkiraanLuasLahan || "-",
+    Array.isArray(data.kendaraanTersedia) ? data.kendaraanTersedia.join(", ") : "-",
+    data.modalPribadi || "-",
+    Array.isArray(data.sumberModal) ? data.sumberModal.join(", ") : "-",
+    data.tambahModal || "-",
+    data.waktuHarian || "-",
+    data.modelKeterlibatan || "-",
+    data.kesediaanPelatihan || "-",
+    Array.isArray(data.topikPelatihan) ? data.topikPelatihan.join(", ") : "-",
+    Array.isArray(data.bentukPendampingan) ? data.bentukPendampingan.join(", ") : "-",
+    data.kesediaanPendampingan || "-",
+    Array.isArray(data.kendalaTerbesar) ? data.kendalaTerbesar.join(", ") : "-",
+    data.harapanBKPSDM || "-",
+    data.scoring ? data.scoring.totalScore : 0,
+    data.scoring ? data.scoring.category : "-",
+    data.scoring ? data.scoring.interpretation : "-",
+    data.scoring ? data.scoring.priorityLevel : "-",
+    data.scoring ? data.scoring.recommendation : "-"
+  ];
+
+  sheet.appendRow(row);
+  Logger.log("✓ Berhasil menulis data ke Sheet Data_Responden.");
+}
+
+// SINKRONISASI REAL-TIME: Mengirim data seluruh baris Spreadsheet ke Dashboard Admin BKPSDM
+function doGet(e) {
+  var lock = LockService.getScriptLock();
+  lock.tryLock(10000);
+
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName("Data_Responden");
+
+    // Jika sheet belum ada atau hanya ada header (0 atau 1 baris)
+    if (!sheet || sheet.getLastRow() <= 1) {
+      return ContentService.createTextOutput(
+        JSON.stringify({
+          status: "success",
+          total: 0,
+          records: [],
+          message: "Sheet Data_Responden masih kosong atau hanya berisi baris header."
+        })
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var values = sheet.getDataRange().getValues();
+    var records = [];
+
+    // Mulai dari baris ke-2 (index 1) karena baris ke-1 adalah judul kolom
+    for (var i = 1; i < values.length; i++) {
+      var row = values[i];
+      if (!row[1] && !row[2]) continue; // Lewati jika nama dan NIP kosong
+
+      var timeStr = "";
+      if (row[0] instanceof Date) {
+        timeStr = Utilities.formatDate(row[0], "Asia/Jakarta", "dd/MM/yyyy, HH:mm:ss");
+      } else {
+        timeStr = String(row[0] || "-");
+      }
+
+      var totalScoreNum = Number(row[32]) || 0;
+      var categoryStr = String(row[33] || "-");
+      var colorStr = totalScoreNum >= 80 ? "emerald" : totalScoreNum >= 65 ? "blue" : totalScoreNum >= 50 ? "amber" : "slate";
+
+      var record = {
+        id: "GS-" + i,
+        timestamp: timeStr,
+        data: {
+          nama: String(row[1] || "-"),
+          nip: String(row[2] || "-"),
+          unitKerja: String(row[3] || "-"),
+          jabatan: String(row[4] || "-"),
+          tahunPensiun: String(row[5] || "-"),
+          usia: String(row[6] || "-"),
+          pendidikan: String(row[7] || "-"),
+          domisili: String(row[8] || "-"),
+          pengalamanUsaha: String(row[9] || "-"),
+          bidangPernahDijalankan: row[10] ? String(row[10]).split(", ") : [],
+          keterampilan: row[11] ? String(row[11]).split(", ") : [],
+          bidangDiminati: row[12] ? String(row[12]).split(", ") : [],
+          prioritasUtama: String(row[13] || "-"),
+          alasanPrioritas: String(row[14] || "-"),
+          keyakinanUsaha: Number(row[15]) || 0,
+          asetTersedia: row[17] ? String(row[17]).split(", ") : [],
+          kepemilikanLahan: String(row[18] || "-"),
+          perkiraanLuasLahan: String(row[19] || "-"),
+          kendaraanTersedia: row[20] ? String(row[20]).split(", ") : [],
+          modalPribadi: String(row[21] || "-"),
+          sumberModal: row[22] ? String(row[22]).split(", ") : [],
+          tambahModal: String(row[23] || "-"),
+          waktuHarian: String(row[24] || "-"),
+          modelKeterlibatan: String(row[25] || "-"),
+          kesediaanPelatihan: Number(row[26]) || 0,
+          topikPelatihan: row[27] ? String(row[27]).split(", ") : [],
+          bentukPendampingan: row[28] ? String(row[28]).split(", ") : [],
+          kesediaanPendampingan: String(row[29] || "-"),
+          kendalaTerbesar: row[30] ? String(row[30]).split(", ") : [],
+          harapanBKPSDM: String(row[31] || "-")
+        },
+        score: {
+          totalScore: totalScoreNum,
+          category: categoryStr,
+          interpretation: String(row[34] || "-"),
+          priorityLevel: String(row[35] || "Sedang"),
+          recommendation: String(row[36] || "-"),
+          color: colorStr,
+          dimensions: []
+        }
+      };
+
+      records.unshift(record); // Data submit terbaru tampil paling atas
+    }
+
+    return ContentService.createTextOutput(
+      JSON.stringify({
+        status: "success",
+        total: records.length,
+        records: records,
+        lastUpdated: Utilities.formatDate(new Date(), "Asia/Jakarta", "dd/MM/yyyy HH:mm:ss")
+      })
+    ).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    Logger.log("Error doGet: " + error.toString());
+    return ContentService.createTextOutput(
+      JSON.stringify({ status: "error", message: error.toString() })
+    ).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Fungsi pengujian manual
+function testTulisKeSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var contohData = {
+    nama: "YUSANTO WIBOWO, S.IP., M.P.",
+    nip: "196810091990031001",
+    unitKerja: "Sekretariat Daerah",
+    jabatan: "Asisten Pemerintahan dan Kesejahteraan Rakyat",
+    tahunPensiun: "2028",
+    usia: "58",
+    pendidikan: "Magister (S2)",
+    domisili: "Tetap di domisili saat ini",
+    pengalamanUsaha: "Pernah, tapi sudah berhenti",
+    bidangPernahDijalankan: ["Pertanian & Hidroponik"],
+    keterampilan: ["Manajemen Usaha / Operasional"],
+    bidangDiminati: ["Pertanian & Hidroponik"],
+    prioritasUtama: "Pertanian & Hidroponik",
+    alasanPrioritas: "Memiliki potensi lahan prapensiun di Majalengka",
+    keyakinanUsaha: 5,
+    khususPertanian: ["Hortikultura & Sayuran (Cabai, Tomat, Bawang)"],
+    asetTersedia: ["Lahan / Tanah sendiri"],
+    kepemilikanLahan: "Ya, milik sendiri",
+    perkiraanLuasLahan: "500 - 1.000 m2",
+    kendaraanTersedia: ["Mobil Pick-up"],
+    modalPribadi: "Rp50 - 100 juta",
+    sumberModal: ["Tabungan pribadi"],
+    tambahModal: "Ya, jika ada prospek jelas",
+    waktuHarian: "4 - 6 jam per hari",
+    modelKeterlibatan: "Kelola sendiri sepenuhnya (Operasional langsung)",
+    kesediaanPelatihan: 5,
+    topikPelatihan: ["Penyusunan Business Plan & Studi Kelayakan"],
+    bentukPendampingan: ["Pelatihan teknis langsung di lokasi usaha (Field visit)"],
+    kesediaanPendampingan: "Ya, sangat bersedia",
+    kendalaTerbesar: ["Pemasaran / Pembeli"],
+    harapanBKPSDM: "Bimbingan teknis dan kemitraan pasar yang berkelanjutan",
+    scoring: {
+      totalScore: 88,
+      category: "Sangat Siap",
+      interpretation: "Prioritas Inkubasi / Kemitraan Usaha",
+      priorityLevel: "Tinggi",
+      recommendation: "Direkomendasikan masuk Program Inkubasi Usaha Mandiri BKPSDM."
+    }
+  };
+
+  simpanKeSheet(ss, contohData);
+
+  return ContentService.createTextOutput(
+    JSON.stringify({ status: "success", message: "Data contoh uji coba berhasil ditulis ke Google Sheets." })
+  ).setMimeType(ContentService.MimeType.JSON);
+}
+`;
 
 export const AdminPortal: React.FC<AdminPortalProps> = ({
   scriptUrl,
@@ -57,9 +391,47 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [selectedFilter, setSelectedFilter] = useState('ALL');
   const [testConnStatus, setTestConnStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
 
-  // File upload ref
+  // File upload ref Master Pegawai
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importStatus, setImportStatus] = useState<{ loading: boolean; message: string; isError: boolean } | null>(null);
+
+  // File upload ref Excel Responden
+  const respondentFileInputRef = useRef<HTMLInputElement>(null);
+  const [importRespondentStatus, setImportRespondentStatus] = useState<{ loading: boolean; message: string; isError: boolean } | null>(null);
+
+  // Status Sinkronisasi Real-Time Online
+  const [isSyncingRealtime, setIsSyncingRealtime] = useState<boolean>(false);
+  const [lastSyncStatus, setLastSyncStatus] = useState<string | null>(null);
+  const [copiedScript, setCopiedScript] = useState<boolean>(false);
+
+  // Fungsi Sinkronisasi Real-Time dari Google Spreadsheet
+  const fetchRealtimeFromGoogleSheets = async (isManual: boolean = false) => {
+    if (!urlInput || urlInput.trim() === '') return;
+
+    setIsSyncingRealtime(true);
+    setLastSyncStatus(null);
+
+    try {
+      const response = await fetch(urlInput, { method: 'GET' });
+      const result = await response.json();
+
+      if (result && result.status === 'success' && Array.isArray(result.records)) {
+        setRecords(result.records);
+        localStorage.setItem('bkpsdm_survey_records', JSON.stringify(result.records));
+        setLastSyncStatus(`✓ Terhubung Real-Time: ${result.records.length} data responden termutakhir berhasil disinkronkan dari Google Spreadsheet (${result.lastUpdated || new Date().toLocaleTimeString('id-ID')}).`);
+        if (isManual) {
+          alert(`Berhasil! ${result.records.length} data responden termutakhir telah ditarik secara real-time dari Google Spreadsheet.`);
+        }
+      } else if (result && result.message) {
+        setLastSyncStatus(`Info: ${result.message}`);
+      }
+    } catch (err: any) {
+      console.warn('Sinkronisasi online:', err);
+      setLastSyncStatus(`Koneksi offline atau script belum diperbarui. Menampilkan data cadangan browser (${records.length} responden).`);
+    } finally {
+      setIsSyncingRealtime(false);
+    }
+  };
 
   useEffect(() => {
     const saved = localStorage.getItem('bkpsdm_survey_records');
@@ -70,7 +442,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         console.error(e);
       }
     }
-  }, []);
+
+    // Otomatis tarik data terbaru dari Google Spreadsheet saat Admin dibuka
+    fetchRealtimeFromGoogleSheets(false);
+  }, [urlInput]);
 
   const saveRecords = (newRecords: RespondentRecord[]) => {
     setRecords(newRecords);
@@ -235,6 +610,36 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Handler Upload Excel Data Responden dari Google Spreadsheet
+  const handleUploadRespondentExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    setImportRespondentStatus({ loading: true, message: `Sedang memproses berkas responden ${file.name}...`, isError: false });
+
+    try {
+      const parsed = await parseRespondentExcel(file);
+      setRecords(parsed);
+      localStorage.setItem('bkpsdm_survey_records', JSON.stringify(parsed));
+      setImportRespondentStatus({
+        loading: false,
+        message: `Berhasil mengimpor ${parsed.length} data responden dari ${file.name}!`,
+        isError: false
+      });
+    } catch (err: any) {
+      setImportRespondentStatus({
+        loading: false,
+        message: `Gagal membaca Excel: ${err.message || 'Format tidak sesuai'}`,
+        isError: true
+      });
+    } finally {
+      if (respondentFileInputRef.current) {
+        respondentFileInputRef.current.value = '';
       }
     }
   };
@@ -676,25 +1081,76 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       {/* TAB 3: DATA RESPONDEN */}
       {activeTab === 'records' && (
         <div className="bg-white rounded-3xl border-2 border-slate-200 p-6 shadow-sm space-y-5">
+          {/* BANNER REAL-TIME SYNC STATUS DENGAN SPREADSHEET */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50 via-indigo-50/60 to-white border-2 border-blue-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <span className="relative flex h-3.5 w-3.5 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+              </span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-blue-950">
+                    Sinkronisasi Real-Time Google Spreadsheet
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-900 border border-blue-200">
+                    {records.length} Responden Terdata
+                  </span>
+                </div>
+                <p className="text-xs text-blue-900/90 font-medium mt-0.5">
+                  {lastSyncStatus || 'Tersambung ke Google Sheets. Klik tombol sinkronisasi untuk memuat data responden terbaru secara langsung.'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={isSyncingRealtime}
+              onClick={() => fetchRealtimeFromGoogleSheets(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-900 hover:bg-blue-950 text-white font-black text-xs shadow-md transition cursor-pointer disabled:opacity-50 shrink-0"
+              title="Tarik seluruh baris responden terbaru dari Google Spreadsheet ke tabel ini secara real-time"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncingRealtime ? 'animate-spin' : ''}`} />
+              {isSyncingRealtime ? 'Menyinkronkan...' : 'Sinkronkan Real-Time Sekarang'}
+            </button>
+          </div>
+
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             <div>
-              <h3 className="text-lg font-black text-slate-900">Daftar Responden Survei</h3>
-              <p className="text-xs text-slate-500">Tabel data peserta yang telah menyelesaikan kuesioner</p>
+              <h3 className="text-lg font-black text-slate-900">Daftar Responden Survei ({records.length})</h3>
+              <p className="text-xs text-slate-500">Tabel data peserta yang terintegrasi langsung dengan Google Spreadsheet</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              {/* Input file upload excel responden */}
+              <input
+                type="file"
+                ref={respondentFileInputRef}
+                accept=".xlsx, .xls, .csv"
+                onChange={handleUploadRespondentExcel}
+                className="hidden"
+                id="excel-responden-upload"
+              />
+              <label
+                htmlFor="excel-responden-upload"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs shadow-xs cursor-pointer border border-indigo-600"
+                title="Impor file Excel (.xlsx) yang diunduh dari Google Spreadsheet ke tabel ini"
+              >
+                <UploadCloud className="w-4 h-4" /> Impor Excel Responden (.xlsx)
+              </label>
+
               <button
                 type="button"
                 onClick={() => downloadAllRecordsExcel(records)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs cursor-pointer border border-emerald-600"
-                title="Unduh 37 kolom lengkap dalam format Excel (.xlsx) sebagai cadangan jika tidak masuk Google Sheets"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs cursor-pointer border border-emerald-600"
+                title="Unduh 37 kolom lengkap dalam format Excel (.xlsx)"
               >
                 <FileSpreadsheet className="w-4 h-4" /> Unduh Cadangan Excel (.xlsx)
               </button>
               <button
                 type="button"
                 onClick={handleExportCSV}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs shadow-xs cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs shadow-xs cursor-pointer"
               >
                 <Download className="w-4 h-4" /> CSV
               </button>
@@ -709,6 +1165,17 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </button>
             </div>
           </div>
+
+          {importRespondentStatus && (
+            <div
+              className={`p-3.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 ${
+                importRespondentStatus.isError ? 'bg-rose-50 border border-rose-300 text-rose-900' : 'bg-emerald-50 border border-emerald-300 text-emerald-900'
+              }`}
+            >
+              {importRespondentStatus.isError ? <AlertCircle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
+              <span>{importRespondentStatus.message}</span>
+            </div>
+          )}
 
           <div className="overflow-x-auto border border-slate-200 rounded-2xl">
             <table className="w-full text-left text-xs sm:text-sm">
@@ -895,6 +1362,48 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 Gagal mengirim data contoh. Cek URL Webhook atau izin deployment.
               </span>
             )}
+          </div>
+
+          {/* KOTAK KODE GOOGLE APPS SCRIPT VERSI REAL-TIME */}
+          <div className="p-6 rounded-3xl bg-slate-900 text-white space-y-4 border-2 border-slate-800">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-black uppercase tracking-wider mb-1 border border-amber-500/30">
+                  <RefreshCw className="w-3 h-3" /> Kode Apps Script Real-Time (Wajib Di-Deploy)
+                </div>
+                <h4 className="text-base sm:text-lg font-black text-white">
+                  Update Script Google Spreadsheet untuk Integrasi Dua Arah
+                </h4>
+                <p className="text-xs sm:text-sm text-slate-300 mt-0.5">
+                  Salin seluruh kode di bawah ini, tempel di Google Spreadsheet (<strong>Ekstensi &gt; Apps Script</strong>), lalu Deploy versi baru agar data spreadsheet terkirim real-time ke web ini.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(APPS_SCRIPT_SOURCE);
+                  setCopiedScript(true);
+                  setTimeout(() => setCopiedScript(false), 3000);
+                }}
+                className="px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm shadow-md transition cursor-pointer flex items-center gap-2 shrink-0"
+              >
+                {copiedScript ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {copiedScript ? 'Tersalin ke Clipboard!' : 'Salin Kode Apps Script'}
+              </button>
+            </div>
+
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 font-mono text-xs text-blue-200 overflow-x-auto max-h-60 overflow-y-auto">
+              <pre>{APPS_SCRIPT_SOURCE}</pre>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-blue-950/60 border border-blue-800/80 text-xs text-blue-200 space-y-1">
+              <span className="font-extrabold text-amber-300 block">Langkah Cepat Update (1 Menit):</span>
+              <p>1. Klik tombol <strong>"Salin Kode Apps Script"</strong> di atas.</p>
+              <p>2. Buka Spreadsheet Anda &gt; menu <strong>Ekstensi &gt; Apps Script</strong> &gt; hapus isi lama dan tempel kode baru.</p>
+              <p>3. Klik ikon <strong>Simpan (Disket)</strong> &gt; klik <strong>Deploy &gt; Manage deployments</strong> &gt; klik ikon <strong>Pensil (Edit)</strong> &gt; pilih Version: <strong>New version</strong> &gt; klik <strong>Deploy</strong>.</p>
+              <p>4. Kembali ke tab <strong>Data Responden</strong> dan klik <strong>"Sinkronkan Real-Time Sekarang"</strong>!</p>
+            </div>
           </div>
         </div>
       )}

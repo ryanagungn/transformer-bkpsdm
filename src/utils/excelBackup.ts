@@ -136,3 +136,74 @@ export function downloadSingleSurveyExcel(data: SurveyData, score: ScoringResult
   const cleanNip = (data.nip || 'ASN').replace(/\s+/g, '');
   XLSX.writeFile(wb, `Hasil_Survei_Prapensiun_${cleanNip}.xlsx`);
 }
+
+// 3. Parser Berkas Excel Responden (Impor dari Google Spreadsheet atau Cadangan .xlsx)
+export async function parseRespondentExcel(file: File): Promise<RespondentRecord[]> {
+  const data = await file.arrayBuffer();
+  const workbook = XLSX.read(data, { type: 'array' });
+  const sheetName = workbook.SheetNames.find((n) => n.toLowerCase().includes('responden')) || workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  const rawRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+  if (!rawRows || rawRows.length <= 1) {
+    throw new Error('File Excel tidak berisi baris data responden.');
+  }
+
+  const records: RespondentRecord[] = [];
+  for (let i = 1; i < rawRows.length; i++) {
+    const row = rawRows[i];
+    if (!row[1] && !row[2]) continue;
+
+    const totalScore = Number(row[32]) || 0;
+    const category = String(row[33] || 'Potensial');
+    const color = totalScore >= 80 ? 'emerald' : totalScore >= 65 ? 'blue' : totalScore >= 50 ? 'amber' : 'slate';
+
+    records.push({
+      id: `EXCEL-${Date.now()}-${i}`,
+      timestamp: String(row[0] || new Date().toLocaleString('id-ID')),
+      data: {
+        nama: String(row[1] || '-'),
+        nip: String(row[2] || '-'),
+        unitKerja: String(row[3] || '-'),
+        jabatan: String(row[4] || '-'),
+        tahunPensiun: String(row[5] || '-'),
+        usia: String(row[6] || '-'),
+        pendidikan: String(row[7] || '-'),
+        domisili: String(row[8] || '-'),
+        pengalamanUsaha: String(row[9] || '-'),
+        bidangPernahDijalankan: row[10] ? String(row[10]).split(', ') : [],
+        keterampilan: row[11] ? String(row[11]).split(', ') : [],
+        bidangDiminati: row[12] ? String(row[12]).split(', ') : [],
+        prioritasUtama: String(row[13] || '-'),
+        alasanPrioritas: String(row[14] || '-'),
+        keyakinanUsaha: Number(row[15]) || 0,
+        asetTersedia: row[17] ? String(row[17]).split(', ') : [],
+        kepemilikanLahan: String(row[18] || '-'),
+        perkiraanLuasLahan: String(row[19] || '-'),
+        kendaraanTersedia: row[20] ? String(row[20]).split(', ') : [],
+        modalPribadi: String(row[21] || '-'),
+        sumberModal: row[22] ? String(row[22]).split(', ') : [],
+        tambahModal: String(row[23] || '-'),
+        waktuHarian: String(row[24] || '-'),
+        modelKeterlibatan: String(row[25] || '-'),
+        kesediaanPelatihan: Number(row[26]) || 0,
+        topikPelatihan: row[27] ? String(row[27]).split(', ') : [],
+        bentukPendampingan: row[28] ? String(row[28]).split(', ') : [],
+        kesediaanPendampingan: String(row[29] || '-'),
+        kendalaTerbesar: row[30] ? String(row[30]).split(', ') : [],
+        harapanBKPSDM: String(row[31] || '-')
+      },
+      score: {
+        totalScore,
+        category,
+        interpretation: String(row[34] || '-'),
+        priorityLevel: (row[35] || 'Sedang') as any,
+        recommendation: String(row[36] || '-'),
+        color,
+        dimensions: []
+      }
+    });
+  }
+
+  return records;
+}
