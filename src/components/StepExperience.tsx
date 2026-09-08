@@ -78,7 +78,7 @@ export const StepExperience: React.FC<Props> = ({ data, onChange }) => {
       </div>
 
       {/* 2. Bidang Pernah Dijalankan */}
-      {data.pengalamanUsaha !== 'Belum pernah' && (
+      {data.pengalamanUsaha && data.pengalamanUsaha !== 'Belum pernah' && (
         <div className="space-y-3 pt-3 border-t border-slate-200">
           <label className="block text-base sm:text-lg font-bold text-slate-900">
             2. Bidang usaha apa yang pernah atau sedang ditekuni?

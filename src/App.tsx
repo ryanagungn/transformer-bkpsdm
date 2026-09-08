@@ -30,18 +30,18 @@ const INITIAL_DATA: SurveyData = {
   nip: '',
   unitKerja: '',
   jabatan: '',
-  tahunPensiun: '2026',
-  usia: '56',
-  pendidikan: 'Sarjana (S1)',
-  domisili: 'Tetap di domisili saat ini',
-  pengalamanUsaha: 'Belum pernah',
+  tahunPensiun: '',
+  usia: '',
+  pendidikan: '',
+  domisili: '',
+  pengalamanUsaha: '',
   bidangPernahDijalankan: [],
-  keterampilan: ['Budidaya tanaman'],
-  bidangDiminati: ['Pertanian'],
-  prioritasUtama: 'Pertanian',
+  keterampilan: [],
+  bidangDiminati: [],
+  prioritasUtama: '',
   alasanPrioritas: '',
-  keyakinanUsaha: 4,
-  khususPertanian: ['Hortikultura & Sayuran'],
+  keyakinanUsaha: 0,
+  khususPertanian: [],
   khususPerikanan: [],
   khususPerkebunan: [],
   khususPeternakan: [],
@@ -49,20 +49,20 @@ const INITIAL_DATA: SurveyData = {
   khususGrosir: [],
   khususCuciKendaraan: [],
   khususLainnya: [],
-  asetTersedia: ['Tanah kosong'],
-  kepemilikanLahan: 'Ya, milik sendiri',
-  perkiraanLuasLahan: '500 - 1.000 m2',
-  kendaraanTersedia: ['Sepeda motor'],
-  modalPribadi: 'Rp50 - 100 juta',
-  sumberModal: ['Tabungan pribadi'],
-  tambahModal: 'Tergantung hasil kajian kelayakan usaha',
-  waktuHarian: '4 - 6 jam per hari',
-  modelKeterlibatan: 'Kelola sendiri sepenuhnya (Operasional langsung)',
-  kesediaanPelatihan: 5,
-  topikPelatihan: ['Penyusunan Business Plan & Studi Kelayakan'],
-  bentukPendampingan: ['Pelatihan teknis langsung di lokasi usaha (Field visit)'],
-  kesediaanPendampingan: 'Ya, sangat bersedia',
-  kendalaTerbesar: ['Pemasaran / Pembeli'],
+  asetTersedia: [],
+  kepemilikanLahan: '',
+  perkiraanLuasLahan: '',
+  kendaraanTersedia: [],
+  modalPribadi: '',
+  sumberModal: [],
+  tambahModal: '',
+  waktuHarian: '',
+  modelKeterlibatan: '',
+  kesediaanPelatihan: 0,
+  topikPelatihan: [],
+  bentukPendampingan: [],
+  kesediaanPendampingan: '',
+  kendalaTerbesar: [],
   harapanBKPSDM: ''
 };
 
@@ -71,8 +71,8 @@ const STEP_TITLES = [
   'Pengalaman & Keahlian (B)',
   'Peminatan Bidang Usaha (C)',
   'Pendalaman Komoditas Pilihan',
-  'Kesiapan Aset & Finansial (D & E)',
-  'Waktu & Kebutuhan Pembekalan (F & G)',
+  'Kesiapan Aset & Lahan Usaha (D)',
+  'Model Usaha & Pembekalan (F & G)',
   'Penutup & Komitmen (P)'
 ];
 
@@ -195,7 +195,19 @@ export function App() {
         setErrorMessage('NIP tidak terdaftar dalam Database Transformers 2026 BKPSDM. Survei ini hanya dapat diisi oleh ASN yang terdaftar.');
         return false;
       }
+      if (!formData.pendidikan) {
+        setErrorMessage('Mohon pilih pendidikan terakhir Bapak/Ibu.');
+        return false;
+      }
+      if (!formData.domisili) {
+        setErrorMessage('Mohon pilih rencana domisili setelah purna tugas.');
+        return false;
+      }
     } else if (currentStep === 2) {
+      if (!formData.pengalamanUsaha) {
+        setErrorMessage('Mohon pilih riwayat pengalaman usaha Bapak/Ibu.');
+        return false;
+      }
       if (formData.keterampilan.length === 0) {
         setErrorMessage('Mohon pilih minimal 1 keterampilan yang Bapak/Ibu kuasai.');
         return false;
@@ -211,6 +223,10 @@ export function App() {
       }
       if (!formData.alasanPrioritas.trim()) {
         setErrorMessage('Mohon ceritakan sedikit alasan Bapak/Ibu memilih bidang usaha tersebut.');
+        return false;
+      }
+      if (!formData.keyakinanUsaha || formData.keyakinanUsaha === 0) {
+        setErrorMessage('Mohon tentukan tingkat keyakinan keberhasilan usaha Bapak/Ibu (Skala 1-5).');
         return false;
       }
     } else if (currentStep === 4) {
@@ -234,17 +250,25 @@ export function App() {
         setErrorMessage('Mohon pilih ketersediaan aset Bapak/Ibu (atau pilih opsi Tidak Ada).');
         return false;
       }
-      if (formData.sumberModal.length === 0) {
-        setErrorMessage('Mohon pilih rencana sumber modal Bapak/Ibu.');
+      if (!formData.kepemilikanLahan) {
+        setErrorMessage('Mohon pilih kepemilikan lahan untuk tempat usaha.');
         return false;
       }
     } else if (currentStep === 6) {
-      if (formData.topikPelatihan.length === 0) {
-        setErrorMessage('Mohon pilih materi pelatihan yang Bapak/Ibu butuhkan.');
+      if (!formData.modelKeterlibatan) {
+        setErrorMessage('Mohon pilih model pengelolaan usaha yang diinginkan.');
+        return false;
+      }
+      if (!formData.kesediaanPelatihan || formData.kesediaanPelatihan === 0) {
+        setErrorMessage('Mohon tentukan tingkat kesediaan mengikuti program pelatihan wirausaha (Skala 1-5).');
         return false;
       }
       if (formData.bentukPendampingan.length === 0) {
         setErrorMessage('Mohon pilih bentuk pendampingan yang Bapak/Ibu harapkan.');
+        return false;
+      }
+      if (!formData.kesediaanPendampingan) {
+        setErrorMessage('Mohon pilih kesediaan didampingi mentor usaha.');
         return false;
       }
     } else if (currentStep === 7) {

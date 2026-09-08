@@ -5,12 +5,11 @@ import {
   Printer,
   RotateCcw,
   Sparkles,
-  Check,
   CheckCircle2,
   ThumbsUp,
-  FileText,
   Download,
-  AlertCircle
+  Briefcase,
+  Layers
 } from 'lucide-react';
 
 interface Props {
@@ -32,42 +31,22 @@ export const ResultCard: React.FC<Props> = ({
     window.print();
   };
 
-  const getScoreBadge = () => {
-    switch (result.category) {
-      case 'Sangat Siap':
-        return {
-          bg: 'bg-blue-100 border-blue-400 text-blue-950',
-          badgeText: '🌟 SANGAT SIAP MEMULAI USAHA',
-          tagline: 'Prioritas Utama Inkubasi Usaha & Fasilitasi Kemitraan'
-        };
-      case 'Siap':
-        return {
-          bg: 'bg-indigo-100 border-indigo-400 text-indigo-950',
-          badgeText: '👍 SIAP MEMULAI USAHA',
-          tagline: 'Perlu Penguatan Terarah pada Manajemen & Pemasaran'
-        };
-      case 'Potensial':
-        return {
-          bg: 'bg-amber-100 border-amber-400 text-amber-950',
-          badgeText: '💡 POTENSIAL & BERPROSPEK',
-          tagline: 'Perlu Pembekalan Wirausaha Intensif & Studi Kelayakan'
-        };
-      default:
-        return {
-          bg: 'bg-slate-100 border-slate-400 text-slate-900',
-          badgeText: '🌱 TAHAP PERSIAPAN AWAL',
-          tagline: 'Fokus Orientasi Motivasi & Pemantapan Rencana'
-        };
-    }
-  };
-
-  const badgeInfo = getScoreBadge();
+  const selectedSubsectors = [
+    data.khususPertanian && data.khususPertanian.length > 0 ? `Pertanian: ${data.khususPertanian.join(', ')}` : '',
+    data.khususPerikanan && data.khususPerikanan.length > 0 ? `Perikanan: ${data.khususPerikanan.join(', ')}` : '',
+    data.khususPerkebunan && data.khususPerkebunan.length > 0 ? `Perkebunan: ${data.khususPerkebunan.join(', ')}` : '',
+    data.khususPeternakan && data.khususPeternakan.length > 0 ? `Peternakan: ${data.khususPeternakan.join(', ')}` : '',
+    data.khususEkspedisi && data.khususEkspedisi.length > 0 ? `Ekspedisi: ${data.khususEkspedisi.join(', ')}` : '',
+    data.khususGrosir && data.khususGrosir.length > 0 ? `Grosir: ${data.khususGrosir.join(', ')}` : '',
+    data.khususCuciKendaraan && data.khususCuciKendaraan.length > 0 ? `Cuci: ${data.khususCuciKendaraan.join(', ')}` : '',
+    data.khususLainnya && data.khususLainnya.length > 0 ? `Lainnya: ${data.khususLainnya.join(', ')}` : ''
+  ].filter(Boolean).join(' • ');
 
   return (
     <div className="space-y-6 print:m-0 print:p-0">
       {/* KARTU RESMI HASIL ASESMEN */}
       <div className="bg-white rounded-3xl border-3 border-blue-900/30 overflow-hidden shadow-xl print:shadow-none print:border-2 print:border-slate-800">
-        {/* Banner Kop Surat dengan Logo Transformer */}
+        {/* Banner Kop Surat dengan Logo Transformer & BKPSDM */}
         <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 text-white p-6 sm:p-8 text-center relative border-b-4 border-amber-400">
           <div className="flex items-center justify-center gap-3 mb-3">
             <div className="w-14 h-14 rounded-2xl bg-white/10 p-1.5 backdrop-blur-xs border border-white/20 shadow-inner flex items-center justify-center">
@@ -80,13 +59,13 @@ export const ResultCard: React.FC<Props> = ({
           </div>
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/15 text-amber-300 text-xs sm:text-sm font-extrabold tracking-wide mb-2 border border-white/20">
             <Sparkles className="w-4 h-4" />
-            Laporan Hasil Asesmen Mandiri Kewirausahaan ASN
+            Laporan Peminatan & Kesiapan Kewirausahaan ASN
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight">
-            Kartu Hasil Kesiapan Usaha Pra-Pensiun
+            Kartu Peminatan Usaha Pra-Pensiun
           </h1>
           <p className="text-blue-200 text-sm sm:text-base mt-2 max-w-xl mx-auto font-medium">
-            Badan Kepegawaian dan Pengembangan Sumber Daya Manusia (BKPSDM)
+            Badan Kepegawaian dan Pengembangan Sumber Daya Manusia (BKPSDM) Pemerintah Daerah Kabupaten Majalengka
           </p>
         </div>
 
@@ -111,110 +90,92 @@ export const ResultCard: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Status Pengiriman Data (Bersih untuk Responden) */}
+        {/* Status Pengiriman Data */}
         <div className="px-6 sm:px-8 py-3 bg-slate-100 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs sm:text-sm">
           <div className="flex items-center gap-2">
-            {syncStatus === 'synced' ? (
-              <>
-                <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
-                <span className="font-bold text-slate-800">Status Data:</span>
-                <span className="inline-flex items-center gap-1 text-emerald-900 font-bold bg-emerald-100 px-2.5 py-0.5 rounded-md">
-                  ✓ Data Survei Berhasil Diterima oleh Spreadsheet Online BKPSDM
-                </span>
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="w-4 h-4 text-blue-700 shrink-0" />
-                <span className="font-bold text-slate-800">Status Data:</span>
-                <span className="inline-flex items-center gap-1 text-blue-900 font-bold bg-blue-100 px-2.5 py-0.5 rounded-md">
-                  ✓ Data Tersimpan Aman di Cadangan Sistem BKPSDM
-                </span>
-              </>
-            )}
+            <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+            <span className="font-bold text-slate-800">Status Data:</span>
+            <span className="inline-flex items-center gap-1 text-emerald-900 font-bold bg-emerald-100 px-2.5 py-0.5 rounded-md">
+              ✓ Formulir Survei Berhasil Disimpan & Diterima oleh Sistem BKPSDM
+            </span>
           </div>
           <span className="text-xs text-slate-500 font-medium hidden sm:inline">
-            Status: Selesai (100%)
+            Status: Lengkap & Terverifikasi
           </span>
         </div>
 
-        {/* BODY HASIL ASESMEN */}
-        <div className="p-6 sm:p-8 space-y-8">
-          {/* Kotak Nilai Skor Utama */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6 p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-blue-50 via-indigo-50/50 to-white border-2 border-blue-200 shadow-xs">
-            <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
-              {/* Lingkaran Skor dengan Warna Biru Logo */}
-              <div className="relative w-32 h-32 sm:w-36 sm:h-36 rounded-full flex flex-col items-center justify-center bg-white shadow-lg border-6 border-blue-800 text-blue-950 shrink-0">
-                <span className="text-4xl sm:text-5xl font-black">{result.totalScore}</span>
-                <span className="text-xs font-black text-slate-500 tracking-wider">DARI 100</span>
+        {/* BODY HASIL RESUME PEMINATAN & REKOMENDASI (BEBAS SKOR & NILAI) */}
+        <div className="p-6 sm:p-8 space-y-6">
+          {/* Card Profil Bidang Usaha Pilihan */}
+          <div className="p-6 sm:p-7 rounded-3xl bg-gradient-to-br from-blue-50 via-slate-50 to-indigo-50/40 border-2 border-blue-200 shadow-xs space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-900 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Briefcase className="w-5 h-5" />
               </div>
               <div>
-                <div className={`inline-block px-4 py-1.5 rounded-full text-sm font-black border-2 ${badgeInfo.bg}`}>
-                  {badgeInfo.badgeText}
-                </div>
-                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mt-2">
-                  {result.interpretation}
+                <span className="text-xs font-bold text-blue-800 uppercase tracking-wider block">Profil Peminatan Wirausaha</span>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+                  {data.prioritasUtama || 'Bidang Usaha Pilihan'}
                 </h2>
-                <p className="text-slate-600 font-medium text-sm sm:text-base mt-1">
-                  {badgeInfo.tagline}
-                </p>
               </div>
             </div>
 
-            <div className="text-center md:text-right bg-white/80 p-4 rounded-2xl border border-blue-100 shadow-2xs">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Tingkat Prioritas:</span>
-              <span className="text-xl sm:text-2xl font-black text-blue-950 block mt-0.5">
-                {result.priorityLevel}
-              </span>
-              <span className="text-xs font-semibold text-emerald-700 mt-1 block">
-                ✓ Masuk Database Program BKPSDM
-              </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-200 text-sm sm:text-base">
+              <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                <span className="text-xs font-bold text-slate-500 block uppercase tracking-wide">Komoditas / Subsektor Khusus:</span>
+                <span className="font-extrabold text-slate-900 mt-1 block">
+                  {selectedSubsectors || 'Sesuai peminatan umum'}
+                </span>
+              </div>
+              <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                <span className="text-xs font-bold text-slate-500 block uppercase tracking-wide">Model Pengelolaan yang Diinginkan:</span>
+                <span className="font-extrabold text-blue-950 mt-1 block">
+                  {data.modelKeterlibatan || '-'}
+                </span>
+              </div>
             </div>
+
+            {data.alasanPrioritas && (
+              <div className="bg-white/80 p-4 rounded-2xl border border-blue-100 text-sm sm:text-base">
+                <span className="text-xs font-bold text-slate-500 block uppercase tracking-wide">Alasan Pemilihan Usaha:</span>
+                <p className="text-slate-700 italic mt-1 font-medium leading-relaxed">
+                  "{data.alasanPrioritas}"
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Rekomendasi Program Pembekalan */}
-          <div className="p-6 rounded-3xl bg-amber-50/70 border-2 border-amber-300 space-y-2">
+          <div className="p-6 sm:p-7 rounded-3xl bg-amber-50/80 border-2 border-amber-300 space-y-3">
             <h3 className="text-base sm:text-lg font-black text-amber-950 flex items-center gap-2">
               <ThumbsUp className="w-5 h-5 text-amber-700" />
-              Rekomendasi Tindak Lanjut Program:
+              Rekomendasi Program Tindak Lanjut Pembekalan BKPSDM:
             </h3>
-            <p className="text-sm sm:text-base text-amber-900 font-semibold leading-relaxed">
+            <p className="text-sm sm:text-base text-amber-950 font-semibold leading-relaxed">
               {result.recommendation}
             </p>
           </div>
 
-          {/* Rincian 7 Dimensi Kesiapan */}
-          <div className="space-y-4">
-            <h3 className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-blue-800" />
-              Rincian Kesiapan per Aspek (7 Dimensi):
+          {/* Agenda & Tahapan Selanjutnya */}
+          <div className="p-6 rounded-3xl bg-slate-50 border-2 border-slate-200 space-y-3">
+            <h3 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+              <Layers className="w-5 h-5 text-blue-800" />
+              Langkah Selanjutnya oleh BKPSDM Kabupaten Majalengka:
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {result.dimensions.map((dim, idx) => (
-                <div key={idx} className="p-5 rounded-2xl bg-slate-50 border-2 border-slate-200 space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="font-extrabold text-base text-slate-900">{dim.name}</span>
-                    <span className="text-sm font-black text-blue-900 bg-blue-100 px-2.5 py-1 rounded-lg">
-                      {dim.score} / {dim.maxScore} pts ({dim.percentage}%)
-                    </span>
-                  </div>
-                  <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-700 ${
-                        dim.percentage >= 75
-                          ? 'bg-blue-800'
-                          : dim.percentage >= 50
-                          ? 'bg-indigo-600'
-                          : 'bg-amber-500'
-                      }`}
-                      style={{ width: `${dim.percentage}%` }}
-                    />
-                  </div>
-                  <p className="text-xs sm:text-sm text-slate-600 font-medium">
-                    Keterangan: {dim.notes}
-                  </p>
-                </div>
-              ))}
-            </div>
+            <ul className="space-y-2 text-sm sm:text-base text-slate-700 font-medium">
+              <li className="flex items-start gap-2.5">
+                <span className="text-blue-800 font-bold">1.</span>
+                <span>Data peminatan dan komitmen Bapak/Ibu telah dikelompokkan ke dalam klaster komoditas kewirausahaan BKPSDM Transformers 2026.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="text-blue-800 font-bold">2.</span>
+                <span>BKPSDM akan menginformasikan jadwal pelatihan teknis wirausaha, bimbingan manajemen, serta temu praktisi/mentor usaha.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="text-blue-800 font-bold">3.</span>
+                <span>Bagi peserta yang membutuhkan fasilitasi kemitraan, akan difasilitasi pendampingan terarah sebelum memasuki masa purna tugas.</span>
+              </li>
+            </ul>
           </div>
         </div>
 

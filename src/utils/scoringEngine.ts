@@ -2,7 +2,6 @@ import { SurveyData, ScoringResult, DimensionScore } from '../types/survey';
 
 export function calculateSurveyScore(data: SurveyData): ScoringResult {
   // 1. DIMENSI MINAT USAHA (Bobot 25%)
-  // Komponen: Pilihan prioritas utama (+10) + Keyakinan usaha 1-5 (+3 per skala, maks 15)
   let scoreMinat = 0;
   if (data.prioritasUtama && data.prioritasUtama.trim() !== '') {
     scoreMinat += 10;
@@ -12,100 +11,60 @@ export function calculateSurveyScore(data: SurveyData): ScoringResult {
   scoreMinat = Math.min(25, Math.round(scoreMinat * 10) / 10);
 
   // 2. DIMENSI KOMPETENSI / PENGALAMAN (Bobot 15%)
-  // Komponen: Pengalaman usaha (0-9) + Jumlah keterampilan relevan (0-6)
   let scoreKompetensi = 0;
-  if (data.pengalamanUsaha.includes('aktif')) {
+  const peng = data.pengalamanUsaha || '';
+  if (peng.includes('aktif')) {
     scoreKompetensi += 9;
-  } else if (data.pengalamanUsaha.includes('kecil')) {
+  } else if (peng.includes('kecil')) {
     scoreKompetensi += 7;
-  } else if (data.pengalamanUsaha.includes('berhenti')) {
+  } else if (peng.includes('berhenti')) {
     scoreKompetensi += 4;
   } else {
-    scoreKompetensi += 1;
+    scoreKompetensi += 2;
   }
   const skillCount = data.keterampilan ? data.keterampilan.length : 0;
   scoreKompetensi += Math.min(6, skillCount * 1.5);
   scoreKompetensi = Math.min(15, Math.round(scoreKompetensi * 10) / 10);
 
-  // 3. DIMENSI ASET (Bobot 15%)
-  // Komponen: Lahan (0-6) + Aset produktif (0-6) + Kendaraan (0-3)
+  // 3. DIMENSI ASET & LAHAN (Bobot 15%)
   let scoreAset = 0;
-  if (data.kepemilikanLahan.includes('sendiri')) {
+  const lahan = data.kepemilikanLahan || '';
+  if (lahan.includes('sendiri')) {
+    scoreAset += 8;
+  } else if (lahan.includes('keluarga')) {
     scoreAset += 6;
-  } else if (data.kepemilikanLahan.includes('keluarga')) {
+  } else if (lahan.includes('menyewa')) {
     scoreAset += 4;
-  } else if (data.kepemilikanLahan.includes('menyewa')) {
-    scoreAset += 3;
   } else {
-    scoreAset += 1;
+    scoreAset += 2;
   }
 
   const validAset = (data.asetTersedia || []).filter(
     (a) => !a.toLowerCase().includes('tidak ada')
   );
-  scoreAset += Math.min(6, validAset.length * 1.5);
-
-  const validKendaraan = (data.kendaraanTersedia || []).filter(
-    (k) => !k.toLowerCase().includes('tidak ada')
-  );
-  scoreAset += Math.min(3, validKendaraan.length * 1.5);
+  scoreAset += Math.min(7, validAset.length * 2.5);
   scoreAset = Math.min(15, Math.round(scoreAset * 10) / 10);
 
   // 4. DIMENSI MODAL (Bobot 15%)
-  // Komponen: Kisaran modal (0-11) + Kesediaan tambah modal (0-4)
-  let scoreModal = 0;
-  if (data.modalPribadi.includes('> Rp500')) {
-    scoreModal += 11;
-  } else if (data.modalPribadi.includes('250 - 500')) {
-    scoreModal += 10;
-  } else if (data.modalPribadi.includes('100 - 250')) {
-    scoreModal += 9;
-  } else if (data.modalPribadi.includes('50 - 100')) {
-    scoreModal += 7.5;
-  } else if (data.modalPribadi.includes('25 - 50')) {
-    scoreModal += 6;
-  } else if (data.modalPribadi.includes('10 - 25')) {
-    scoreModal += 4.5;
-  } else if (data.modalPribadi.includes('< Rp10')) {
-    scoreModal += 3;
-  } else {
-    scoreModal += 2;
-  }
+  // Karena pertanyaan modal dihapus dari form isian responden, dialokasikan skor kesiapan standar (12/15)
+  // yang diakomodasi melalui fasilitas Tabungan Hari Tua (THT)/Taspen dan program fasilitasi BKPSDM.
+  const scoreModal = 12;
 
-  if (data.tambahModal.includes('Ya')) {
-    scoreModal += 4;
-  } else if (data.tambahModal.includes('Tergantung')) {
-    scoreModal += 2.5;
-  } else {
-    scoreModal += 1;
-  }
-  scoreModal = Math.min(15, Math.round(scoreModal * 10) / 10);
-
-  // 5. DIMENSI WAKTU & MODEL KETERLIBATAN (Bobot 10%)
-  // Komponen: Waktu harian (0-6) + Model keterlibatan (0-4)
+  // 5. DIMENSI ALOKASI WAKTU & MODEL PENGELOLAAN (Bobot 10%)
   let scoreWaktu = 0;
-  if (data.waktuHarian.includes('> 8') || data.waktuHarian.includes('Fleksibel')) {
-    scoreWaktu += 6;
-  } else if (data.waktuHarian.includes('6 - 8')) {
-    scoreWaktu += 5.5;
-  } else if (data.waktuHarian.includes('4 - 6')) {
-    scoreWaktu += 4.5;
-  } else if (data.waktuHarian.includes('2 - 4')) {
-    scoreWaktu += 3.5;
-  } else {
-    scoreWaktu += 2;
-  }
-
+  const model = data.modelKeterlibatan || '';
   if (
-    data.modelKeterlibatan.includes('sendiri') ||
-    data.modelKeterlibatan.includes('keluarga') ||
-    data.modelKeterlibatan.includes('pasangan')
+    model.includes('sendiri') ||
+    model.includes('keluarga') ||
+    model.includes('pasangan')
   ) {
-    scoreWaktu += 4;
-  } else if (data.modelKeterlibatan.includes('karyawan') || data.modelKeterlibatan.includes('Bermitra')) {
-    scoreWaktu += 3;
+    scoreWaktu += 10;
+  } else if (model.includes('karyawan') || model.includes('Bermitra')) {
+    scoreWaktu += 8;
+  } else if (model) {
+    scoreWaktu += 6;
   } else {
-    scoreWaktu += 1.5;
+    scoreWaktu += 5;
   }
   scoreWaktu = Math.min(10, Math.round(scoreWaktu * 10) / 10);
 
@@ -116,12 +75,13 @@ export function calculateSurveyScore(data: SurveyData): ScoringResult {
 
   // 7. DIMENSI KESIAPAN PENDAMPINGAN (Bobot 10%)
   let scorePendampingan = 0;
-  if (data.kesediaanPendampingan.includes('sangat bersedia') || data.kesediaanPendampingan === 'Ya') {
+  const damping = data.kesediaanPendampingan || '';
+  if (damping.includes('sangat bersedia') || damping === 'Ya') {
     scorePendampingan = 10;
-  } else if (data.kesediaanPendampingan.includes('Mempertimbangkan') || data.kesediaanPendampingan.includes('Pertimbangkan')) {
+  } else if (damping.includes('Mempertimbangkan') || damping.includes('Pertimbangkan')) {
     scorePendampingan = 6.5;
   } else {
-    scorePendampingan = 2;
+    scorePendampingan = 3;
   }
 
   // TOTAL SCORE
@@ -150,7 +110,7 @@ export function calculateSurveyScore(data: SurveyData): ScoringResult {
       maxScore: 15,
       weightPercent: 15,
       percentage: Math.round((scoreKompetensi / 15) * 100),
-      notes: `${data.pengalamanUsaha} (${skillCount} keahlian relevan)`
+      notes: `${data.pengalamanUsaha || '-'} (${skillCount} keahlian relevan)`
     },
     {
       name: 'Ketersediaan Aset & Lahan',
@@ -166,7 +126,7 @@ export function calculateSurveyScore(data: SurveyData): ScoringResult {
       maxScore: 15,
       weightPercent: 15,
       percentage: Math.round((scoreModal / 15) * 100),
-      notes: `Alokasi: ${data.modalPribadi}`
+      notes: `Standar alokasi prapensiun & fasilitas BKPSDM`
     },
     {
       name: 'Alokasi Waktu & Pengelolaan',
@@ -174,7 +134,7 @@ export function calculateSurveyScore(data: SurveyData): ScoringResult {
       maxScore: 10,
       weightPercent: 10,
       percentage: Math.round((scoreWaktu / 10) * 100),
-      notes: `${data.waktuHarian}, ${data.modelKeterlibatan}`
+      notes: `${data.modelKeterlibatan || 'Pengelolaan mandiri'}`
     },
     {
       name: 'Kesiapan Belajar / Pelatihan',
@@ -190,7 +150,7 @@ export function calculateSurveyScore(data: SurveyData): ScoringResult {
       maxScore: 10,
       weightPercent: 10,
       percentage: Math.round((scorePendampingan / 10) * 100),
-      notes: data.kesediaanPendampingan
+      notes: data.kesediaanPendampingan || '-'
     }
   ];
 
@@ -204,7 +164,7 @@ export function calculateSurveyScore(data: SurveyData): ScoringResult {
     category = 'Sangat Siap';
     interpretation = 'Prioritas Inkubasi & Kemitraan Strategis';
     recommendation =
-      'Bapak/Ibu memiliki profil kesiapan wirausaha yang matang, baik dari sisi minat, permodalan, aset, maupun komitmen. BKPSDM merekomendasikan Anda untuk langsung masuk ke kelompok inkubasi percepatan usaha dan fasilitasi kemitraan pasar/investasi.';
+      'Bapak/Ibu memiliki profil kesiapan wirausaha yang matang, baik dari sisi minat, kesiapan aset, maupun komitmen pendampingan. BKPSDM merekomendasikan Anda untuk langsung masuk ke kelompok inkubasi percepatan usaha dan fasilitasi kemitraan pasar/investasi.';
     priorityLevel = 'Tinggi';
     color = 'emerald';
   } else if (totalScore >= 65) {

@@ -1,9 +1,7 @@
 import React from 'react';
 import { SurveyData } from '../types/survey';
 import {
-  WAKTU_HARIAN_LIST,
   MODEL_KETERLIBATAN_LIST,
-  TOPIK_PELATIHAN_LIST,
   BENTUK_PENDAMPINGAN_LIST,
   PENDAMPINGAN_KOMITMEN_LIST
 } from '../data/surveyQuestions';
@@ -41,46 +39,19 @@ export const StepTimeCommitment: React.FC<Props> = ({ data, onChange }) => {
           </div>
           <div>
             <h2 className="text-lg sm:text-xl font-extrabold text-blue-950">
-              Bagian F & G: Waktu Usaha & Kebutuhan Pembekalan
+              Bagian F & G: Model Pengelolaan & Kebutuhan Pembekalan
             </h2>
             <p className="text-sm sm:text-base text-blue-900/90 mt-1 leading-relaxed">
-              BKPSDM ingin memastikan materi pelatihan disesuaikan dengan topik yang benar-benar Bapak/Ibu butuhkan dan waktu luang yang tersedia.
+              BKPSDM ingin memastikan bentuk pendampingan dan pembekalan disesuaikan dengan kesiapan serta model usaha yang Bapak/Ibu kehendaki.
             </p>
           </div>
         </div>
       </div>
 
-      {/* 1. Waktu Harian */}
+      {/* 1. Model Keterlibatan (sebelumnya nomor 2) */}
       <div className="space-y-3">
         <label className="block text-base sm:text-lg font-bold text-slate-900">
-          1. Waktu Luang per Hari yang Siap Dialokasikan untuk Usaha: <span className="text-rose-600 font-black">*</span>
-        </label>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {WAKTU_HARIAN_LIST.map((item) => {
-            const isSelected = data.waktuHarian === item;
-            return (
-              <button
-                type="button"
-                key={item}
-                onClick={() => onChange({ waktuHarian: item })}
-                className={`flex items-center justify-between p-4 rounded-xl border-2 text-left transition duration-150 cursor-pointer ${
-                  isSelected
-                    ? 'border-blue-800 bg-blue-50 text-blue-950 font-black shadow-sm ring-2 ring-blue-500/30'
-                    : 'border-slate-200 hover:border-slate-400 bg-white text-slate-800 font-medium'
-                }`}
-              >
-                <span className="text-sm sm:text-base">{item}</span>
-                {isSelected && <Check className="w-4 h-4 text-blue-800 ml-1 stroke-[3]" />}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 2. Model Keterlibatan */}
-      <div className="space-y-3 pt-3 border-t-2 border-slate-200">
-        <label className="block text-base sm:text-lg font-bold text-slate-900">
-          2. Model Pengelolaan Usaha yang Diinginkan: <span className="text-rose-600 font-black">*</span>
+          1. Model Pengelolaan Usaha yang Diinginkan: <span className="text-rose-600 font-black">*</span>
         </label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {MODEL_KETERLIBATAN_LIST.map((item) => {
@@ -108,10 +79,10 @@ export const StepTimeCommitment: React.FC<Props> = ({ data, onChange }) => {
         </div>
       </div>
 
-      {/* 3. Kesediaan Pelatihan */}
+      {/* 2. Kesediaan Pelatihan (sebelumnya nomor 3) */}
       <div className="space-y-3 pt-3 border-t-2 border-slate-200">
         <label className="block text-base sm:text-lg font-bold text-slate-900">
-          3. Tingkat Kesediaan Mengikuti Program Pelatihan Wirausaha BKPSDM: <span className="text-rose-600 font-black">*</span>
+          2. Tingkat Kesediaan Mengikuti Program Pelatihan Wirausaha BKPSDM: <span className="text-rose-600 font-black">*</span>
         </label>
 
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
@@ -139,44 +110,10 @@ export const StepTimeCommitment: React.FC<Props> = ({ data, onChange }) => {
         </div>
       </div>
 
-      {/* 4. Topik Pelatihan */}
+      {/* 3. Bentuk Pendampingan (sebelumnya nomor 5) */}
       <div className="space-y-3 pt-3 border-t-2 border-slate-200">
         <label className="block text-base sm:text-lg font-bold text-slate-900">
-          4. Topik Pelatihan yang Paling Bapak/Ibu Butuhkan: <span className="text-rose-600 font-black">*</span>
-          <span className="text-xs font-normal text-slate-500 block sm:inline sm:ml-2">
-            (Pilih materi yang ingin dipelajari)
-          </span>
-        </label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-          {TOPIK_PELATIHAN_LIST.map((item) => {
-            const isChecked = data.topikPelatihan.includes(item);
-            return (
-              <button
-                type="button"
-                key={item}
-                onClick={() =>
-                  onChange({
-                    topikPelatihan: toggleArrayItem(data.topikPelatihan, item)
-                  })
-                }
-                className={`flex items-center justify-between p-3.5 rounded-xl border-2 text-left transition duration-150 cursor-pointer text-sm sm:text-base ${
-                  isChecked
-                    ? 'border-blue-800 bg-blue-800 text-white font-bold shadow-xs'
-                    : 'border-slate-200 hover:border-slate-400 bg-white text-slate-800 font-medium'
-                }`}
-              >
-                <span className="leading-snug">{item}</span>
-                {isChecked && <Check className="w-4 h-4 shrink-0 ml-1 stroke-[3]" />}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 5. Bentuk Pendampingan */}
-      <div className="space-y-3 pt-3 border-t-2 border-slate-200">
-        <label className="block text-base sm:text-lg font-bold text-slate-900">
-          5. Bentuk Pendampingan yang Paling Diharapkan: <span className="text-rose-600 font-black">*</span>
+          3. Bentuk Pendampingan yang Paling Diharapkan: <span className="text-rose-600 font-black">*</span>
         </label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {BENTUK_PENDAMPINGAN_LIST.map((item) => {
@@ -204,10 +141,10 @@ export const StepTimeCommitment: React.FC<Props> = ({ data, onChange }) => {
         </div>
       </div>
 
-      {/* 6. Komitmen Pendampingan 6-12 Bulan */}
+      {/* 4. Komitmen Pendampingan 6-12 Bulan (sebelumnya nomor 6) */}
       <div className="space-y-3 pt-3 border-t-2 border-slate-200">
         <label className="block text-base sm:text-lg font-bold text-slate-900">
-          6. Apakah Bersedia Didampingi Mentor Usaha Selama 6 – 12 Bulan? <span className="text-rose-600 font-black">*</span>
+          4. Apakah Bersedia Didampingi Mentor Usaha Selama 6 – 12 Bulan? <span className="text-rose-600 font-black">*</span>
         </label>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {PENDAMPINGAN_KOMITMEN_LIST.map((item) => {
