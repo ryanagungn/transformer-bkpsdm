@@ -155,8 +155,13 @@ export function App() {
   };
 
   const handleSaveScriptUrl = (url: string) => {
-    setScriptUrl(url);
-    localStorage.setItem('bkpsdm_gas_url', url);
+    const trimmed = url.trim();
+    if (trimmed && !trimmed.startsWith('https://script.google.com/macros/s/')) {
+      alert('Demi keamanan sistem, URL Webhook wajib menggunakan domain resmi Google Apps Script:\\nhttps://script.google.com/macros/s/');
+      return;
+    }
+    setScriptUrl(trimmed);
+    localStorage.setItem('bkpsdm_gas_url', trimmed);
   };
 
   const handleUpdateMasterPegawai = (data: MasterPegawai[]) => {
@@ -308,8 +313,15 @@ export function App() {
     setIsSubmitting(true);
     setErrorMessage('');
 
-    // 2. Sanitasi Input Teks dari Potensi XSS
-    const sanitizeText = (str: string) => (str ? str.replace(/[<>]/g, '').trim() : '');
+    // 2. Sanitasi Input Teks dari Potensi XSS dan Spreadsheet Formula Injection (CWE-1236)
+    const sanitizeText = (str: string) => {
+      if (!str) return '';
+      let clean = str.replace(/[<>]/g, '').trim();
+      if (/^[=+\-@\t\r]/.test(clean)) {
+        clean = "'" + clean;
+      }
+      return clean;
+    };
     const sanitizedData: SurveyData = {
       ...formData,
       nama: sanitizeText(formData.nama),
@@ -421,7 +433,7 @@ export function App() {
       {/* KONTEN UTAMA */}
       <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         {/* ========================================================================= */}
-        {/* 1. JALUR /ADMIN DENGAN PROTEKSI KATA SANDI (ryanagung123)                 */}
+        {/* 1. JALUR /ADMIN DENGAN PROTEKSI AUTENTIKASI KATA SANDI                    */}
         {/* ========================================================================= */}
         {isAdminPath ? (
           isAdminAuthenticated ? (

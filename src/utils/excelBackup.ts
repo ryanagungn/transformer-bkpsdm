@@ -49,6 +49,16 @@ export const EXCEL_SURVEY_HEADERS = [
   'Rekomendasi Program'
 ];
 
+// Sanitasi Sel Spreadsheet dari Formula Injection (CWE-1236)
+export function sanitizeExcelCell(val: any): any {
+  if (typeof val !== 'string') return val;
+  const trimmed = val.trim();
+  if (/^[=+\-@\t\r]/.test(trimmed)) {
+    return "'" + trimmed;
+  }
+  return val;
+}
+
 export function formatSurveyRow(data: SurveyData, score: ScoringResult, timestamp: string = new Date().toLocaleString('id-ID')): any[] {
   const detailSubsektor = [
     data.khususPertanian && data.khususPertanian.length > 0 ? `Pertanian: ${data.khususPertanian.join(', ')}` : '',
@@ -61,7 +71,7 @@ export function formatSurveyRow(data: SurveyData, score: ScoringResult, timestam
     data.khususLainnya && data.khususLainnya.length > 0 ? `Lainnya: ${data.khususLainnya.join(', ')}` : ''
   ].filter(Boolean).join(' | ');
 
-  return [
+  const rawRow = [
     timestamp,
     data.nama || '-',
     data.nip || '-',
@@ -100,6 +110,8 @@ export function formatSurveyRow(data: SurveyData, score: ScoringResult, timestam
     score ? score.priorityLevel : '-',
     score ? score.recommendation : '-'
   ];
+
+  return rawRow.map(sanitizeExcelCell);
 }
 
 // 1. Ekspor Cadangan Seluruh Responden (Admin)

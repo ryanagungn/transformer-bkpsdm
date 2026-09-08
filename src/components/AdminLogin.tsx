@@ -13,10 +13,10 @@ export const AdminLogin: React.FC<Props> = ({ onSuccess, onCancel }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
   const [attempts, setAttempts] = useState<number>(() => {
-    return parseInt(sessionStorage.getItem('bkpsdm_login_attempts') || '0', 10);
+    return parseInt(localStorage.getItem('bkpsdm_login_attempts') || '0', 10);
   });
   const [lockoutTime, setLockoutTime] = useState<number>(() => {
-    return parseInt(sessionStorage.getItem('bkpsdm_lockout_until') || '0', 10);
+    return parseInt(localStorage.getItem('bkpsdm_lockout_until') || '0', 10);
   });
   const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
 
@@ -56,22 +56,23 @@ export const AdminLogin: React.FC<Props> = ({ onSuccess, onCancel }) => {
 
     if (inputHash === ADMIN_HASH) {
       setError(false);
-      sessionStorage.removeItem('bkpsdm_login_attempts');
-      sessionStorage.removeItem('bkpsdm_lockout_until');
+      localStorage.removeItem('bkpsdm_login_attempts');
+      localStorage.removeItem('bkpsdm_lockout_until');
       sessionStorage.setItem('bkpsdm_admin_auth', 'true');
       onSuccess();
     } else {
+      setPassword('');
       const newAttempts = attempts + 1;
       setAttempts(newAttempts);
-      sessionStorage.setItem('bkpsdm_login_attempts', newAttempts.toString());
+      localStorage.setItem('bkpsdm_login_attempts', newAttempts.toString());
       setError(true);
 
       if (newAttempts >= MAX_ATTEMPTS) {
         const lockoutUntil = Date.now() + LOCKOUT_DURATION_MS;
         setLockoutTime(lockoutUntil);
-        sessionStorage.setItem('bkpsdm_lockout_until', lockoutUntil.toString());
+        localStorage.setItem('bkpsdm_lockout_until', lockoutUntil.toString());
         setAttempts(0);
-        sessionStorage.setItem('bkpsdm_login_attempts', '0');
+        localStorage.setItem('bkpsdm_login_attempts', '0');
       }
     }
   };

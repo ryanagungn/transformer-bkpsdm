@@ -19,7 +19,12 @@ export const AdminConfigModal: React.FC<Props> = ({
   if (!isOpen) return null;
 
   const handleSave = () => {
-    onSaveScriptUrl(urlInput.trim());
+    const trimmed = urlInput.trim();
+    if (trimmed && !trimmed.startsWith('https://script.google.com/macros/s/')) {
+      alert('Demi keamanan sistem, URL Webhook wajib menggunakan domain resmi Google Apps Script:\nhttps://script.google.com/macros/s/');
+      return;
+    }
+    onSaveScriptUrl(trimmed);
     onClose();
   };
 

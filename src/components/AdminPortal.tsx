@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { SurveyData, ScoringResult } from '../types/survey';
 import { MasterPegawai } from '../types/pegawai';
 import { DEFAULT_MASTER_PEGAWAI, downloadPegawaiTemplate, parsePegawaiExcel } from '../data/defaultPegawai';
+import { DEFAULT_GAS_TOKEN } from '../config/constants';
 import { downloadAllRecordsExcel, parseRespondentExcel, deduplicateRespondentRecords, downloadSingleSurveyExcel } from '../utils/excelBackup';
 import {
   LayoutDashboard,
@@ -49,25 +50,23 @@ interface AdminPortalProps {
 
 const APPS_SCRIPT_SOURCE = `/**
  * =========================================================================
- * GOOGLE APPS SCRIPT: CONNECTOR SURVEI ASN PRA-PENSIUN BKPSDM (VERSI ANTI-DUPLIKASI & REAL-TIME)
+ * GOOGLE APPS SCRIPT: CONNECTOR SURVEI ASN PRA-PENSIUN BKPSDM
+ * (VERSI TERPROTEKSI: ANTI-DUPLIKASI, TOKEN AUTORISASI & ANTI-FORMULA INJECTION)
  * =========================================================================
- * Fitur Utama:
- * 1. doPost : Menerima submit survei. Dilengkapi ANTI-DUPLIKASI (otomatis update jika NIP sudah ada).
- * 2. doGet  : Mengirimkan seluruh data responden unik real-time ke Dashboard Admin.
- * 3. bersihkanDuplikasiDiSheet: Fungsi manual untuk membersihkan baris duplikasi di sheet jika ada.
+ * Fitur Keamanan:
+ * 1. Token Otorisasi: doGet mewajibkan token rahasia agar data responden tidak bisa di-scrape publik.
+ * 2. Anti-Formula Injection: Menangkal eksploitasi rumus Excel (=, +, -, @) dari input pengguna.
+ * 3. Anti-Duplikasi: Otomatis memperbarui (update) jika NIP sudah ada di Spreadsheet.
  *
- * Panduan Update (Hanya 1 Menit):
- * 1. Buka Google Spreadsheet Anda.
- * 2. Di menu atas, klik: Extensions (Ekstensi) > Apps Script.
- * 3. Hapus semua kode lama di editor, lalu TEMPEL SELURUH KODE INI.
- * 4. Klik ikon Simpan (Disket).
- * 5. Klik tombol biru di kanan atas: "Deploy" (Terapkan) > "Manage deployments".
- * 6. Klik ikon Pensil (Edit):
- *    - Versi: Pilih "New version" (Versi baru).
- *    - Siapa yang memiliki akses: "Anyone" (Siapa saja).
- * 7. Klik "Deploy" (Terapkan).
+ * Panduan Update (1 Menit):
+ * 1. Buka Google Spreadsheet Anda > menu Ekstensi > Apps Script.
+ * 2. Hapus semua kode lama, lalu TEMPEL SELURUH KODE INI.
+ * 3. Klik ikon Simpan (Disket).
+ * 4. Klik Deploy > Manage deployments > Edit (Pensil) > Version: New version > Deploy.
  * =========================================================================
  */
+
+var SECURE_TOKEN = "BKPSDM_TRANSFORMERS_2026_SECURE_TOKEN";
 
 function doPost(e) {
   var lock = LockService.getScriptLock();
@@ -76,7 +75,6 @@ function doPost(e) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     
-    // Jika tombol "Jalankan" diklik manual di editor Apps Script tanpa payload
     if (!e || !e.postData || !e.postData.contents) {
       Logger.log("doPost dipanggil manual tanpa payload. Menjalankan testTulisKeSheet()...");
       return testTulisKeSheet();
@@ -88,7 +86,7 @@ function doPost(e) {
     simpanKeSheet(ss, data);
 
     return ContentService.createTextOutput(
-      JSON.stringify({ status: "success", message: "Data survei ASN berhasil disimpan ke Google Sheets (Anti-Duplikasi Aktif)." })
+      JSON.stringify({ status: "success", message: "Data survei ASN berhasil disimpan ke Google Sheets (Tervalidasi Aman)." })
     ).setMimeType(ContentService.MimeType.JSON);
 
   } catch (error) {
@@ -101,11 +99,21 @@ function doPost(e) {
   }
 }
 
-// Fungsi pembantu penyimpanan ke Sheet Data_Responden (Dengan Proteksi Anti-Duplikasi NIP)
+// Sanitasi untuk menangkal Spreadsheet Formula Injection (CWE-1236)
+function bersihkanFormula(val) {
+  if (typeof val !== "string") return val;
+  var trimmed = val.trim();
+  if (/^[=+\-@	
+]/.test(trimmed)) {
+    return "'" + trimmed;
+  }
+  return trimmed;
+}
+
+// Fungsi pembantu penyimpanan ke Sheet Data_Responden (Proteksi Anti-Duplikasi & Formula Injection)
 function simpanKeSheet(ss, data) {
   var sheet = ss.getSheetByName("Data_Responden");
   
-  // Jika sheet belum ada, buat otomatis
   if (!sheet) {
     sheet = ss.insertSheet("Data_Responden");
   }
@@ -151,7 +159,6 @@ function simpanKeSheet(ss, data) {
     "Rekomendasi Program"
   ];
 
-  // Jika sheet masih kosong, tulis header baris pertama
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(headers);
     var headerRange = sheet.getRange(1, 1, 1, headers.length);
@@ -173,8 +180,8 @@ function simpanKeSheet(ss, data) {
     data.khususLainnya ? "Lainnya: " + data.khususLainnya.join(", ") : ""
   ].filter(Boolean).join(" | ");
 
-  // Susun baris data baru
-  var row = [
+  // Susun baris data baru dengan pembersihan sanitasi
+  var rawRow = [
     new Date(),
     data.nama || "-",
     data.nip || "-",
@@ -214,21 +221,22 @@ function simpanKeSheet(ss, data) {
     data.scoring ? data.scoring.recommendation : "-"
   ];
 
-  // ==========================================
+  var row = rawRow.map(function(item) {
+    return bersihkanFormula(item);
+  });
+
   // ANTI-DUPLIKASI: Cek keberadaan NIP di Sheet
-  // ==========================================
   var nipTarget = String(data.nip || "").trim().replace(/[\s\.\-]/g, "");
   var existingRowIndex = -1;
 
   if (nipTarget && nipTarget !== "-" && nipTarget !== "0") {
     var lastRow = sheet.getLastRow();
     if (lastRow > 1) {
-      // Kolom C adalah NIP (kolom ke-3)
       var nipValues = sheet.getRange(2, 3, lastRow - 1, 1).getValues();
       for (var r = 0; r < nipValues.length; r++) {
         var existingNip = String(nipValues[r][0] || "").trim().replace(/[\s\.\-]/g, "");
         if (existingNip === nipTarget) {
-          existingRowIndex = r + 2; // Baris 1-indexed dan baris 1 adalah header
+          existingRowIndex = r + 2;
           break;
         }
       }
@@ -236,26 +244,34 @@ function simpanKeSheet(ss, data) {
   }
 
   if (existingRowIndex > 0) {
-    // Jika NIP sudah ada, perbarui baris yang ada (tidak membuat duplikasi)
     sheet.getRange(existingRowIndex, 1, 1, row.length).setValues([row]);
-    Logger.log("✓ Data NIP " + nipTarget + " sudah ada di baris " + existingRowIndex + ". Berhasil diperbarui (Anti-Duplikasi).");
+    Logger.log("✓ Data NIP " + nipTarget + " ditemukan di baris " + existingRowIndex + ". Data diperbarui (Anti-Duplikasi).");
   } else {
-    // Jika NIP baru, tambahkan baris baru
     sheet.appendRow(row);
     Logger.log("✓ Berhasil menulis data baru ke Sheet Data_Responden.");
   }
 }
 
-// SINKRONISASI REAL-TIME DENGAN ANTI-DUPLIKASI: Mengirim data unik ke Dashboard Admin
+// SINKRONISASI REAL-TIME TERPROTEKSI: Mengirim data unik ke Dashboard Admin (Wajib Token)
 function doGet(e) {
   var lock = LockService.getScriptLock();
   lock.tryLock(10000);
 
   try {
+    // 1. Otorisasi Keamanan: Periksa apakah token rahasia valid
+    var clientToken = e && e.parameter ? (e.parameter.token || e.parameter.apiKey || "") : "";
+    if (clientToken !== SECURE_TOKEN) {
+      return ContentService.createTextOutput(
+        JSON.stringify({
+          status: "error",
+          message: "Akses ditolak (403 Forbidden): Token autentikasi tidak valid atau tidak disertakan."
+        })
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName("Data_Responden");
 
-    // Jika sheet belum ada atau hanya ada header
     if (!sheet || sheet.getLastRow() <= 1) {
       return ContentService.createTextOutput(
         JSON.stringify({
@@ -274,13 +290,12 @@ function doGet(e) {
     // Scan dari baris paling bawah ke atas (data submit paling baru diperiksa lebih awal)
     for (var i = values.length - 1; i >= 1; i--) {
       var row = values[i];
-      if (!row[1] && !row[2]) continue; // Lewati jika nama dan NIP kosong
+      if (!row[1] && !row[2]) continue;
 
       var nipKey = String(row[2] || "").trim().replace(/[\s\.\-]/g, "");
       var nameKey = String(row[1] || "").trim().toLowerCase();
       var uniqueKey = nipKey && nipKey !== "-" && nipKey !== "0" ? "nip:" + nipKey : "name:" + nameKey;
 
-      // ANTI-DUPLIKASI: Jika ASN ini sudah masuk dari baris yang lebih baru, lewati baris lamanya
       if (seenKeys[uniqueKey]) {
         continue;
       }
@@ -352,6 +367,7 @@ function doGet(e) {
         total: records.length,
         records: records,
         antiDuplication: true,
+        authenticated: true,
         lastUpdated: Utilities.formatDate(new Date(), "Asia/Jakarta", "dd/MM/yyyy HH:mm:ss")
       })
     ).setMimeType(ContentService.MimeType.JSON);
@@ -376,7 +392,6 @@ function bersihkanDuplikasiDiSheet() {
   var seenKeys = {};
   var rowsToDelete = [];
 
-  // Dari baris bawah ke atas
   for (var i = values.length - 1; i >= 1; i--) {
     var nip = String(values[i][2] || "").trim().replace(/[\s\.\-]/g, "");
     var name = String(values[i][1] || "").trim().toLowerCase();
@@ -441,7 +456,7 @@ function testTulisKeSheet() {
   };
 
   simpanKeSheet(ss, contohData);
-  return ContentService.createTextOutput("Uji coba anti-duplikasi simpanKeSheet berhasil dijalankan.").setMimeType(ContentService.MimeType.TEXT);
+  return ContentService.createTextOutput("Uji coba simpanKeSheet berhasil dijalankan.").setMimeType(ContentService.MimeType.TEXT);
 }
 `;
 
@@ -497,7 +512,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     setLastSyncStatus(null);
 
     try {
-      const response = await fetch(urlInput, { method: 'GET' });
+      const fetchUrl = urlInput.includes('?')
+        ? `${urlInput}&token=${DEFAULT_GAS_TOKEN}`
+        : `${urlInput}?token=${DEFAULT_GAS_TOKEN}`;
+      const response = await fetch(fetchUrl, { method: 'GET' });
       const result = await response.json();
 
       if (result && result.status === 'success' && Array.isArray(result.records)) {
@@ -553,7 +571,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   };
 
   const handleSaveUrl = () => {
-    onSaveScriptUrl(urlInput.trim());
+    const trimmed = urlInput.trim();
+    if (trimmed && !trimmed.startsWith('https://script.google.com/macros/s/')) {
+      alert('Demi keamanan sistem, URL Webhook wajib menggunakan domain resmi Google Apps Script:\nhttps://script.google.com/macros/s/');
+      return;
+    }
+    onSaveScriptUrl(trimmed);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
@@ -691,6 +714,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     if (!files || files.length === 0) return;
 
     const file = files[0];
+    if (file.size > 5 * 1024 * 1024) {
+      setImportStatus({ loading: false, message: 'Ukuran file melebihi batas maksimal yang diizinkan (5 MB).', isError: true });
+      return;
+    }
     setImportStatus({ loading: true, message: `Sedang memproses file ${file.name}...`, isError: false });
 
     try {
@@ -720,6 +747,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     if (!files || files.length === 0) return;
 
     const file = files[0];
+    if (file.size > 5 * 1024 * 1024) {
+      setImportRespondentStatus({ loading: false, message: 'Ukuran berkas melebihi batas maksimal yang diizinkan (5 MB).', isError: true });
+      return;
+    }
     setImportRespondentStatus({ loading: true, message: `Sedang memproses berkas responden ${file.name}...`, isError: false });
 
     try {
@@ -764,18 +795,26 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       'Kategori Kesiapan'
     ];
 
+    const cleanCsvCell = (val: any) => {
+      let str = String(val ?? '').trim();
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = "'" + str;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
     const rows = records.map((r) => [
-      `"${r.timestamp}"`,
-      `"${r.data.nama || ''}"`,
-      `"${r.data.nip || ''}"`,
-      `"${r.data.unitKerja || ''}"`,
-      `"${r.data.jabatan || ''}"`,
-      `"${r.data.tahunPensiun || ''}"`,
-      `"${r.data.usia || ''}"`,
-      `"${r.data.prioritasUtama || ''}"`,
-      `"${r.data.modalPribadi || ''}"`,
+      cleanCsvCell(r.timestamp),
+      cleanCsvCell(r.data.nama),
+      cleanCsvCell(r.data.nip),
+      cleanCsvCell(r.data.unitKerja),
+      cleanCsvCell(r.data.jabatan),
+      cleanCsvCell(r.data.tahunPensiun),
+      cleanCsvCell(r.data.usia),
+      cleanCsvCell(r.data.prioritasUtama),
+      cleanCsvCell(r.data.modalPribadi),
       r.score.totalScore,
-      `"${r.score.category}"`
+      cleanCsvCell(r.score.category)
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
