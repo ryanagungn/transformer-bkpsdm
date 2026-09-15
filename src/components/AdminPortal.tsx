@@ -37,7 +37,14 @@ interface RespondentRecord {
   score: ScoringResult;
 }
 
+export interface AdminUser {
+  username: string;
+  name: string;
+  role: string;
+}
+
 interface AdminPortalProps {
+  currentUser?: AdminUser | null;
   scriptUrl: string;
   onSaveScriptUrl: (url: string) => void;
   onClose: () => void;
@@ -461,6 +468,7 @@ function testTulisKeSheet() {
 `;
 
 export const AdminPortal: React.FC<AdminPortalProps> = ({
+  currentUser,
   scriptUrl,
   onSaveScriptUrl,
   onClose,
@@ -892,7 +900,25 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Badge Pengguna yang Sedang Login */}
+          <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-blue-50/80 border-2 border-blue-200 shadow-2xs">
+            <div className="w-8 h-8 rounded-xl bg-blue-900 text-amber-300 font-black text-xs flex items-center justify-center shadow-xs">
+              {currentUser?.username === 'kabidppi' ? 'KP' : 'AT'}
+            </div>
+            <div className="text-left leading-tight">
+              <div className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                <span>{currentUser?.name || 'Admin Transformer'}</span>
+                <span className="text-[10px] text-blue-700 font-mono font-bold bg-blue-100 px-1.5 py-0.5 rounded-md border border-blue-200">
+                  @{currentUser?.username || 'admin'}
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-500 font-semibold mt-0.5">
+                {currentUser?.role || 'Administrator Sistem'}
+              </div>
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={onClose}

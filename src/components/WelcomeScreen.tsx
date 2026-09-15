@@ -6,7 +6,7 @@ interface Props {
   totalPegawai?: number;
 }
 
-export const WelcomeScreen: React.FC<Props> = ({ onStart, totalPegawai = 2700 }) => {
+export const WelcomeScreen: React.FC<Props> = ({ onStart, totalPegawai = 462 }) => {
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* CARD UTAMA HERO / PENGANTAR */}
@@ -53,13 +53,13 @@ export const WelcomeScreen: React.FC<Props> = ({ onStart, totalPegawai = 2700 })
             {/* Judul Utama */}
             <div className="space-y-2">
               <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500 text-slate-950 text-xs font-black uppercase tracking-wider shadow-sm">
-                <Sparkles className="w-3.5 h-3.5" /> Program Transformers 2026
+                <Sparkles className="w-3.5 h-3.5" /> Program Transformers • Pensiun 2027
               </div>
               <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">
                 Survei Peminatan & Kesiapan Berwirausaha ASN Pra-Pensiun
               </h1>
               <p className="text-sm sm:text-base text-blue-100 font-medium max-w-3xl">
-                Badan Kepegawaian dan Pengembangan Sumber Daya Manusia (BKPSDM) Kabupaten Majalengka
+                Khusus ASN yang Memasuki Masa Purna Tugas Periode <strong>Januari s.d. Desember 2027</strong> (BKPSDM Kabupaten Majalengka)
               </p>
             </div>
           </div>
@@ -74,7 +74,7 @@ export const WelcomeScreen: React.FC<Props> = ({ onStart, totalPegawai = 2700 })
               Tentang Survei & Program Pembekalan Wirausaha
             </h2>
             <p className="text-slate-700 text-base sm:text-lg leading-relaxed">
-              Survei ini diselenggarakan oleh <strong>BKPSDM Kab. Majalengka - Pemerintah Daerah Kabupaten Majalengka</strong> dalam rangka memetakan aspirasi, potensi keahlian, dan kesiapan berwirausaha bagi Bapak/Ibu ASN yang memasuki masa purna tugas.
+              Survei ini diselenggarakan oleh <strong>BKPSDM Kab. Majalengka - Pemerintah Daerah Kabupaten Majalengka</strong> khusus bagi Bapak/Ibu ASN yang memasuki masa purna tugas pada periode <strong>Januari sampai dengan Desember 2027</strong> dalam rangka memetakan aspirasi, potensi keahlian, dan kesiapan berwirausaha.
             </p>
             <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
               Hasil asesmen ini akan menjadi dasar penyusunan <strong>Program Inkubasi, Pelatihan Teknis Praktis, serta Fasilitasi Akses Permodalan & Kemitraan Usaha</strong> yang terarah dan berkelanjutan bagi ASN Kabupaten Majalengka.
@@ -102,7 +102,7 @@ export const WelcomeScreen: React.FC<Props> = ({ onStart, totalPegawai = 2700 })
               <div>
                 <h4 className="font-bold text-slate-900 text-sm sm:text-base">Auto-Fill NIP Cerdas</h4>
                 <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                  Cukup ketikkan NIP Bapak/Ibu di Tahap 1, kolom Nama, OPD, Jabatan, dan Rencana Pensiun otomatis terisi ({totalPegawai.toLocaleString('id-ID')} data terintegrasi).
+                  Cukup ketikkan 18 digit NIP di Tahap 1, data Nama, OPD, Jabatan, dan Tahun Pensiun 2027 otomatis terisi ({totalPegawai.toLocaleString('id-ID')} ASN terdaftar 2027).
                 </p>
               </div>
             </div>
@@ -144,7 +144,7 @@ export const WelcomeScreen: React.FC<Props> = ({ onStart, totalPegawai = 2700 })
             </button>
             <p className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              Terhubung dengan Database Transformers 2026 BKPSDM Kab. Majalengka
+              Khusus ASN Pensiun Periode Januari s.d. Desember 2027 • BKPSDM Kab. Majalengka
             </p>
           </div>
         </div>

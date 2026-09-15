@@ -98,6 +98,18 @@ export function App() {
     return sessionStorage.getItem('bkpsdm_admin_auth') === 'true';
   });
 
+  const [adminUser, setAdminUser] = useState<{ username: string; name: string; role: string } | null>(() => {
+    const saved = sessionStorage.getItem('bkpsdm_admin_user');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
+
   // Master Data Pegawai ASN (Untuk auto-fill NIP dari Database Transformers 2026)
   const [masterPegawai, setMasterPegawai] = useState<MasterPegawai[]>(() => {
     const saved = localStorage.getItem('bkpsdm_master_pegawai');
@@ -185,7 +197,9 @@ export function App() {
 
   const handleAdminLogout = () => {
     sessionStorage.removeItem('bkpsdm_admin_auth');
+    sessionStorage.removeItem('bkpsdm_admin_user');
     setIsAdminAuthenticated(false);
+    setAdminUser(null);
     navigateToSurvey();
   };
 
@@ -197,7 +211,11 @@ export function App() {
         return false;
       }
       if (!formData.nama.trim()) {
-        setErrorMessage('NIP tidak terdaftar dalam Database Transformers 2026 BKPSDM. Survei ini hanya dapat diisi oleh ASN yang terdaftar.');
+        setErrorMessage('NIP tidak terdaftar dalam Database Transformers BKPSDM. Survei ini hanya dapat diisi oleh ASN yang terdaftar.');
+        return false;
+      }
+      if (formData.tahunPensiun !== '2027') {
+        setErrorMessage('Survei ini khusus diperuntukkan bagi ASN yang memasuki masa purna tugas pada periode Januari s.d. Desember 2027.');
         return false;
       }
       if (!formData.pendidikan) {
@@ -438,6 +456,7 @@ export function App() {
         {isAdminPath ? (
           isAdminAuthenticated ? (
             <AdminPortal
+              currentUser={adminUser}
               scriptUrl={scriptUrl}
               onSaveScriptUrl={handleSaveScriptUrl}
               onClose={navigateToSurvey}
@@ -460,7 +479,10 @@ export function App() {
             />
           ) : (
             <AdminLogin
-              onSuccess={() => setIsAdminAuthenticated(true)}
+              onSuccess={(account) => {
+                setAdminUser(account);
+                setIsAdminAuthenticated(true);
+              }}
               onCancel={navigateToSurvey}
             />
           )

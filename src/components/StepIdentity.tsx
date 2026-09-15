@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SurveyData } from '../types/survey';
 import { MasterPegawai } from '../types/pegawai';
 import { PENDIDIKAN_LIST, DOMISILI_LIST } from '../data/surveyQuestions';
-import { User, Check, Sparkles, CheckCircle2, Lock, AlertCircle, ShieldAlert } from 'lucide-react';
+import { User, Check, Sparkles, CheckCircle2, Lock, ShieldAlert, AlertTriangle } from 'lucide-react';
 
 interface Props {
   data: SurveyData;
@@ -14,30 +14,59 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
   const [nipSearch, setNipSearch] = useState(data.nip || '');
   const [matchFound, setMatchFound] = useState<MasterPegawai | null>(null);
   const [notFoundNotice, setNotFoundNotice] = useState(false);
+  const [notEligibleNotice, setNotEligibleNotice] = useState<{
+    nama: string;
+    unitKerja: string;
+    tahunPensiun: string;
+  } | null>(null);
 
   const cleanNip = nipSearch.replace(/\D/g, '').trim();
 
   // VERIFIKASI MUTLAK:
-  // Data nomor 2 s.d 6 HANYA BISA TERISI OTOMATIS dari NIP yang terdaftar di Database Transformers 2026.
-  // Sama sekali tidak ada mode manual.
+  // Data nomor 2 s.d 6 HANYA BISA TERISI OTOMATIS jika:
+  // 1. NIP terdaftar di Database Transformers BKPSDM Kab. Majalengka
+  // 2. Tahun pensiun = 2027 (Periode Januari 2027 s.d. Desember 2027)
   useEffect(() => {
     if (cleanNip.length === 18) {
       const found = masterPegawai.find((p) => p.nip.replace(/\D/g, '') === cleanNip);
       if (found) {
-        setMatchFound(found);
-        setNotFoundNotice(false);
-        onChange({
-          nip: found.nip,
-          nama: found.nama,
-          unitKerja: found.unitKerja,
-          jabatan: found.jabatan,
-          tahunPensiun: found.tahunPensiun || '2026',
-          usia: found.usia || '56',
-          pendidikan: found.pendidikan || data.pendidikan
-        });
+        const retirementYear = String(found.tahunPensiun || '').trim();
+        if (retirementYear === '2027') {
+          // Memenuhi syarat (Cohort Pensiun 2027)
+          setMatchFound(found);
+          setNotFoundNotice(false);
+          setNotEligibleNotice(null);
+          onChange({
+            nip: found.nip,
+            nama: found.nama,
+            unitKerja: found.unitKerja,
+            jabatan: found.jabatan,
+            tahunPensiun: found.tahunPensiun || '2027',
+            usia: found.usia || '57',
+            pendidikan: found.pendidikan || data.pendidikan
+          });
+        } else {
+          // NIP ada di database, tetapi BUKAN pensiun 2027
+          setMatchFound(null);
+          setNotFoundNotice(false);
+          setNotEligibleNotice({
+            nama: found.nama,
+            unitKerja: found.unitKerja,
+            tahunPensiun: retirementYear || 'Lainnya'
+          });
+          onChange({
+            nama: '',
+            unitKerja: '',
+            jabatan: '',
+            usia: '',
+            tahunPensiun: ''
+          });
+        }
       } else {
+        // NIP sama sekali tidak terdaftar
         setMatchFound(null);
         setNotFoundNotice(true);
+        setNotEligibleNotice(null);
         onChange({
           nama: '',
           unitKerja: '',
@@ -49,6 +78,7 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
     } else {
       setMatchFound(null);
       setNotFoundNotice(false);
+      setNotEligibleNotice(null);
       onChange({
         nama: '',
         unitKerja: '',
@@ -69,10 +99,10 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
           </div>
           <div>
             <h2 className="text-lg sm:text-xl font-extrabold text-blue-950">
-              Bagian A: Identitas Pegawai (Khusus ASN Terdaftar)
+              Bagian A: Identitas Pegawai (Khusus ASN Pensiun 2027)
             </h2>
             <p className="text-sm sm:text-base text-blue-900/90 mt-1 leading-relaxed">
-              Survei ini <strong>hanya dapat diisi oleh ASN yang terdaftar dalam Database Transformers 2026 BKPSDM Kab. Majalengka</strong>. Cukup masukkan 18 digit NIP Anda pada kolom nomor 1. Seluruh data resmi akan otomatis terverifikasi dan terkunci. Pengisian manual tidak diizinkan.
+              Tahap survei ini <strong>khusus diperuntukkan bagi ASN yang memasuki masa purna tugas pada periode Januari s.d. Desember 2027</strong> yang terdaftar dalam Database Transformers BKPSDM Kab. Majalengka. Cukup masukkan 18 digit NIP Anda pada kolom nomor 1. Seluruh data resmi akan otomatis terverifikasi dan terkunci.
             </p>
           </div>
         </div>
@@ -85,7 +115,7 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
             <label className="block text-base font-bold text-slate-900 flex items-center gap-2">
               <span>1. NIP (Nomor Induk Pegawai)</span>
               <span className="text-xs font-black text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-amber-600" /> Kunci Verifikasi Resmi
+                <Sparkles className="w-3 h-3 text-amber-600" /> Kunci Verifikasi Pensiun 2027
               </span>
             </label>
             <span className="text-xs text-slate-500 font-medium">
@@ -97,7 +127,7 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
             <input
               type="text"
               maxLength={18}
-              placeholder="Masukkan 18 digit NIP Anda (Contoh: 197108142014062001)..."
+              placeholder="Masukkan 18 digit NIP Anda (Contoh: 196906082007011018)..."
               value={nipSearch}
               onChange={(e) => {
                 const val = e.target.value.replace(/\D/g, '');
@@ -109,39 +139,57 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
             {matchFound && (
               <div className="absolute right-3.5 top-3.5 flex items-center gap-1.5 text-emerald-800 bg-emerald-100 border border-emerald-300 px-3 py-1 rounded-lg text-xs font-black">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>NIP Terverifikasi Resmi</span>
+                <span>Terverifikasi • Pensiun 2027</span>
               </div>
             )}
           </div>
 
-          {/* Peringatan jika NIP 18 digit tidak terdaftar */}
+          {/* Notifikasi NIP Tidak Terdaftar */}
           {notFoundNotice && cleanNip.length === 18 && (
             <div className="p-4 rounded-2xl bg-rose-50 border-2 border-rose-400 text-rose-950 text-xs sm:text-sm font-bold flex items-start gap-3 animate-in fade-in duration-200">
               <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
               <div>
                 <span className="text-sm font-black text-rose-900 block">
-                  NIP Tidak Terdaftar di Database Transformers 2026
+                  NIP Tidak Terdaftar di Database BKPSDM
                 </span>
                 <p className="font-normal text-xs text-rose-800 mt-1 leading-relaxed">
-                  Mohon maaf, survei ini tertutup dan <strong>hanya dapat diisi oleh ASN yang terdaftar resmi</strong> dalam program pembekalan pra-pensiun BKPSDM Kab. Majalengka. Pengisian manual tidak diizinkan. Silakan periksa kembali 18 digit NIP Anda atau hubungi pihak BKPSDM.
+                  Mohon maaf, survei ini tertutup dan <strong>hanya dapat diisi oleh ASN yang terdaftar resmi</strong> dalam program pembekalan pra-pensiun BKPSDM Kab. Majalengka. Silakan periksa kembali 18 digit NIP Anda atau hubungi pihak BKPSDM.
                 </p>
               </div>
             </div>
           )}
 
-          {/* Konfirmasi Data ASN Ditemukan */}
+          {/* Notifikasi NIP Terdaftar Tapi Bukan Pensiun 2027 */}
+          {notEligibleNotice && cleanNip.length === 18 && (
+            <div className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-400 text-amber-950 text-xs sm:text-sm font-bold flex items-start gap-3 animate-in fade-in duration-200">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="text-sm font-black text-amber-900 block">
+                  Periode Pensiun Belum Memenuhi Kriteria Survei Ini
+                </span>
+                <p className="font-semibold text-xs text-amber-900 mt-1 leading-relaxed">
+                  NIP teridentifikasi atas nama <strong>{notEligibleNotice.nama}</strong> ({notEligibleNotice.unitKerja}) dengan rencana pensiun <strong>Tahun {notEligibleNotice.tahunPensiun}</strong>.
+                </p>
+                <p className="font-normal text-xs text-amber-800 mt-1 leading-relaxed">
+                  Survei ini <strong>khusus difokuskan bagi ASN yang pensiun pada periode Januari s.d. Desember 2027</strong>. ASN yang pensiun pada tahun selain 2027 akan diikutsertakan dalam gelombang program berikutnya.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Konfirmasi Data ASN Ditemukan (Pensiun 2027) */}
           {matchFound && (
             <div className="p-4 rounded-xl bg-emerald-50 border-2 border-emerald-300 text-emerald-950 text-xs sm:text-sm space-y-1">
               <div className="flex items-center gap-2 font-black text-emerald-900">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                <span>Data Pegawai Terverifikasi di Database Transformers 2026:</span>
+                <span>Data Pegawai Terverifikasi Memenuhi Syarat (Pensiun 2027):</span>
               </div>
               <div className="pl-7 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-slate-700 text-xs">
                 <div><strong>Nama:</strong> {matchFound.nama}</div>
                 <div><strong>OPD:</strong> {matchFound.unitKerja}</div>
                 <div><strong>Jabatan:</strong> {matchFound.jabatan}</div>
                 {matchFound.pangkat && <div><strong>Pangkat/Gol:</strong> {matchFound.pangkat}</div>}
-                {matchFound.tahunPensiun && <div><strong>Rencana Pensiun:</strong> Tahun {matchFound.tahunPensiun}</div>}
+                <div><strong>Rencana Pensiun:</strong> <span className="text-emerald-800 font-extrabold bg-emerald-100 px-1.5 py-0.5 rounded">Tahun 2027 (Januari - Desember)</span></div>
                 {matchFound.usia && <div><strong>Usia Saat Ini:</strong> {matchFound.usia} Tahun</div>}
               </div>
             </div>
@@ -160,7 +208,7 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
                 : 'bg-slate-100 text-slate-400 border-slate-200'
             }`}>
               <Lock className="w-3 h-3 text-slate-500" />
-              {matchFound ? 'Terisi otomatis dari database' : 'Hanya otomatis dari database NIP'}
+              {matchFound ? 'Terisi otomatis dari database' : 'Hanya otomatis dari NIP terdaftar 2027'}
             </span>
           </div>
           <input
@@ -171,7 +219,7 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
             placeholder={
               matchFound
                 ? ""
-                : "Hanya terisi otomatis saat NIP terdaftar di database BKPSDM..."
+                : "Hanya terisi otomatis saat NIP terdaftar pensiun 2027..."
             }
             value={data.nama}
             className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 shadow-2xs cursor-not-allowed select-none font-bold ${
@@ -194,7 +242,7 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
                 : 'bg-slate-100 text-slate-400 border-slate-200'
             }`}>
               <Lock className="w-3 h-3 text-slate-500" />
-              {matchFound ? 'Terisi otomatis dari database' : 'Hanya otomatis dari database NIP'}
+              {matchFound ? 'Terisi otomatis dari database' : 'Hanya otomatis dari NIP terdaftar 2027'}
             </span>
           </div>
           <input
@@ -205,7 +253,7 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
             placeholder={
               matchFound
                 ? ""
-                : "Hanya terisi otomatis saat NIP terdaftar di database BKPSDM..."
+                : "Hanya terisi otomatis saat NIP terdaftar pensiun 2027..."
             }
             value={data.unitKerja}
             className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 shadow-2xs cursor-not-allowed select-none font-bold ${
@@ -276,15 +324,15 @@ export const StepIdentity: React.FC<Props> = ({ data, onChange, masterPegawai = 
                 : 'bg-slate-100 text-slate-400 border-slate-200'
             }`}>
               <Lock className="w-3 h-3 text-slate-500" />
-              {matchFound ? 'Terisi otomatis dari database' : 'Hanya otomatis dari database NIP'}
+              {matchFound ? 'Terisi otomatis dari database' : 'Wajib Tahun 2027'}
             </span>
           </div>
           <input
             type="text"
             disabled={true}
             readOnly={true}
-            placeholder={matchFound ? "" : "Hanya terisi otomatis saat NIP terdaftar di database BKPSDM..."}
-            value={data.tahunPensiun ? `Tahun ${data.tahunPensiun}` : ''}
+            placeholder={matchFound ? "" : "Hanya terisi otomatis saat NIP terdaftar pensiun 2027..."}
+            value={data.tahunPensiun ? `Tahun ${data.tahunPensiun} (Januari - Desember)` : ''}
             className={`w-full px-4 py-3.5 text-base sm:text-lg rounded-xl border-2 shadow-2xs cursor-not-allowed select-none font-bold ${
               matchFound
                 ? 'bg-slate-100 border-slate-300 text-slate-900'
