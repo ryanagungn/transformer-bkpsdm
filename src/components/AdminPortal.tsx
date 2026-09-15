@@ -3,7 +3,7 @@ import { SurveyData, ScoringResult } from '../types/survey';
 import { MasterPegawai } from '../types/pegawai';
 import { DEFAULT_MASTER_PEGAWAI, downloadPegawaiTemplate, parsePegawaiExcel } from '../data/defaultPegawai';
 import { DEFAULT_GAS_TOKEN } from '../config/constants';
-import { downloadAllRecordsExcel, parseRespondentExcel, deduplicateRespondentRecords, downloadSingleSurveyExcel } from '../utils/excelBackup';
+import { downloadAllRecordsExcel, parseRespondentExcel, deduplicateRespondentRecords, downloadSingleSurveyExcel, filterValidLiveRespondents } from '../utils/excelBackup';
 import {
   LayoutDashboard,
   Users,
@@ -27,7 +27,8 @@ import {
   ChevronRight,
   ShieldCheck,
   Eye,
-  X
+  X,
+  Sparkles
 } from 'lucide-react';
 
 interface RespondentRecord {
@@ -303,6 +304,41 @@ function doGet(e) {
       var nameKey = String(row[1] || "").trim().toLowerCase();
       var uniqueKey = nipKey && nipKey !== "-" && nipKey !== "0" ? "nip:" + nipKey : "name:" + nameKey;
 
+      // Filter data dummy & data sebelum 14 September 2026 (periode uji coba)
+      var rowDate = null;
+      if (row[0] instanceof Date) {
+        rowDate = row[0];
+      } else if (typeof row[0] === "string") {
+        var dMatch = row[0].match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+        if (dMatch) {
+          rowDate = new Date(parseInt(dMatch[3], 10), parseInt(dMatch[2], 10) - 1, parseInt(dMatch[1], 10));
+        } else {
+          var p = Date.parse(row[0]);
+          if (!isNaN(p)) rowDate = new Date(p);
+        }
+      }
+
+      var CUTOFF_DATE = new Date(2026, 8, 14, 0, 0, 0); // 14 September 2026 00:00:00
+      if (rowDate && rowDate < CUTOFF_DATE) {
+        continue; // Lewati data sebelum 14/09/2026 (fase test)
+      }
+
+      var namaStr = String(row[1] || "").toLowerCase();
+      var nipStr = String(row[2] || "").trim();
+      var alasanStr = String(row[14] || "").toLowerCase();
+      var isDummy = namaStr.indexOf("yusanto wibowo") !== -1 ||
+                    namaStr.indexOf("test") !== -1 ||
+                    namaStr.indexOf("dummy") !== -1 ||
+                    namaStr.indexOf("percobaan") !== -1 ||
+                    namaStr.indexOf("uji coba") !== -1 ||
+                    namaStr.indexOf("contoh") !== -1 ||
+                    alasanStr.indexOf("test") !== -1 ||
+                    /^(.)\\1{10,}$/.test(nipStr);
+
+      if (isDummy) {
+        continue; // Lewati data dummy/uji coba
+      }
+
       if (seenKeys[uniqueKey]) {
         continue;
       }
@@ -463,6 +499,67 @@ function testTulisKeSheet() {
   };
 
   simpanKeSheet(ss, contohData);
+}
+
+// =========================================================================
+// FUNGSI PEMBERSIHAN DATA SPREADSHEET (UJI COBA & SEBELUM 14 SEPTEMBER 2026)
+// =========================================================================
+function bersihkanDataUjiCobaDanSebelum14Sep() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Data_Responden");
+  if (!sheet || sheet.getLastRow() <= 1) {
+    Logger.log("Sheet Data_Responden masih kosong atau hanya berisi header.");
+    return "Sheet kosong.";
+  }
+
+  var values = sheet.getDataRange().getValues();
+  var rowsToDelete = [];
+  var CUTOFF_DATE = new Date(2026, 8, 14, 0, 0, 0); // 14 September 2026 00:00:00
+
+  for (var i = values.length - 1; i >= 1; i--) {
+    var row = values[i];
+    var rowDate = null;
+    if (row[0] instanceof Date) {
+      rowDate = row[0];
+    } else if (typeof row[0] === "string") {
+      var dMatch = row[0].match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+      if (dMatch) {
+        rowDate = new Date(parseInt(dMatch[3], 10), parseInt(dMatch[2], 10) - 1, parseInt(dMatch[1], 10));
+      } else {
+        var p = Date.parse(row[0]);
+        if (!isNaN(p)) rowDate = new Date(p);
+      }
+    }
+
+    var isBefore14 = rowDate && rowDate < CUTOFF_DATE;
+    var namaStr = String(row[1] || "").toLowerCase();
+    var nipStr = String(row[2] || "").trim();
+    var alasanStr = String(row[14] || "").toLowerCase();
+
+    var isDummy = namaStr.indexOf("yusanto wibowo") !== -1 ||
+                  namaStr.indexOf("test") !== -1 ||
+                  namaStr.indexOf("dummy") !== -1 ||
+                  namaStr.indexOf("percobaan") !== -1 ||
+                  namaStr.indexOf("uji coba") !== -1 ||
+                  namaStr.indexOf("contoh") !== -1 ||
+                  alasanStr.indexOf("test") !== -1 ||
+                  /^(.)\\1{10,}$/.test(nipStr);
+
+    if (isBefore14 || isDummy) {
+      rowsToDelete.push(i + 1);
+    }
+  }
+
+  for (var d = 0; d < rowsToDelete.length; d++) {
+    sheet.deleteRow(rowsToDelete[d]);
+  }
+
+  var msg = "Berhasil membersihkan " + rowsToDelete.length + " baris data uji coba / sebelum 14 September 2026. Sisa data aktif: " + (sheet.getLastRow() - 1);
+  Logger.log(msg);
+  return msg;
+}
+
+function dummyPlaceholder() {
   return ContentService.createTextOutput("Uji coba simpanKeSheet berhasil dijalankan.").setMimeType(ContentService.MimeType.TEXT);
 }
 `;
@@ -527,7 +624,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       const result = await response.json();
 
       if (result && result.status === 'success' && Array.isArray(result.records)) {
-        const cleanRecords = deduplicateRespondentRecords(result.records);
+        const validRecords = filterValidLiveRespondents(result.records);
+        const cleanRecords = deduplicateRespondentRecords(validRecords);
         setRecords(cleanRecords);
         localStorage.setItem('bkpsdm_survey_records', JSON.stringify(cleanRecords));
         setLastSyncStatus(`✓ Terhubung Real-Time (Anti-Duplikasi Aktif): ${cleanRecords.length} responden unik berhasil disinkronkan (${result.lastUpdated || new Date().toLocaleTimeString('id-ID')}).`);
@@ -550,8 +648,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        const clean = deduplicateRespondentRecords(parsed);
+        const valid = filterValidLiveRespondents(parsed);
+        const clean = deduplicateRespondentRecords(valid);
         setRecords(clean);
+        localStorage.setItem('bkpsdm_survey_records', JSON.stringify(clean));
       } catch (e) {
         console.error(e);
       }
@@ -565,6 +665,18 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     const clean = deduplicateRespondentRecords(newRecords);
     setRecords(clean);
     localStorage.setItem('bkpsdm_survey_records', JSON.stringify(clean));
+  };
+
+  const handleCleanDummyAndPre14 = () => {
+    const valid = filterValidLiveRespondents(records);
+    const clean = deduplicateRespondentRecords(valid);
+    const removedCount = records.length - clean.length;
+    saveRecords(clean);
+    if (removedCount > 0) {
+      alert(`Berhasil membersihkan ${removedCount} data survei uji coba & data sebelum 14 September 2026!\n\nSekarang tersisa ${clean.length} data responden riil yang masuk sejak 14/09/2026.`);
+    } else {
+      alert(`Data sudah bersih dan valid! Seluruh ${clean.length} data responden merupakan data riil yang masuk sejak 14 September 2026 (tidak ditemukan data uji coba/dummy).`);
+    }
   };
 
   const handleCleanDuplicates = () => {
@@ -763,8 +875,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
     try {
       const parsed = await parseRespondentExcel(file);
-      setRecords(parsed);
-      localStorage.setItem('bkpsdm_survey_records', JSON.stringify(parsed));
+      const valid = filterValidLiveRespondents(parsed);
+      const clean = deduplicateRespondentRecords(valid);
+      setRecords(clean);
+      localStorage.setItem('bkpsdm_survey_records', JSON.stringify(clean));
       setImportRespondentStatus({
         loading: false,
         message: `Berhasil mengimpor ${parsed.length} data responden dari ${file.name}!`,
@@ -1331,6 +1445,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             <div>
               <h3 className="text-lg font-black text-slate-900">Daftar Responden Survei ({records.length})</h3>
               <p className="text-xs text-slate-500">Tabel data peserta yang terintegrasi langsung dengan Google Spreadsheet</p>
+              <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-2.5 py-0.5 rounded-full">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                  Data Riil Valid (Mulai 14 Sep 2026)
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  Data uji coba / test sebelum 14/09/2026 otomatis disaring
+                </span>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
@@ -1365,6 +1488,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs shadow-xs cursor-pointer"
               >
                 <Download className="w-4 h-4" /> CSV
+              </button>
+              <button
+                type="button"
+                onClick={handleCleanDummyAndPre14}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-xs cursor-pointer border border-amber-400"
+                title="Hapus data uji coba (dummy) dan data yang disubmit sebelum 14 September 2026"
+              >
+                <Sparkles className="w-4 h-4" /> Bersihkan Data Uji Coba (&lt; 14 Sep)
               </button>
               <button
                 type="button"

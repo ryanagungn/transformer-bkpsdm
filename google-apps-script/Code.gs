@@ -53,7 +53,7 @@ function doPost(e) {
 function bersihkanFormula(val) {
   if (typeof val !== "string") return val;
   var trimmed = val.trim();
-  if (/^[=+\-@	]/.test(trimmed)) {
+  if (/^[=+\-@\t\r]/.test(trimmed)) {
     return "'" + trimmed;
   }
   return trimmed;
@@ -245,6 +245,41 @@ function doGet(e) {
       var nameKey = String(row[1] || "").trim().toLowerCase();
       var uniqueKey = nipKey && nipKey !== "-" && nipKey !== "0" ? "nip:" + nipKey : "name:" + nameKey;
 
+      // Filter data dummy & data sebelum 14 September 2026 (periode uji coba)
+      var rowDate = null;
+      if (row[0] instanceof Date) {
+        rowDate = row[0];
+      } else if (typeof row[0] === "string") {
+        var dMatch = row[0].match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+        if (dMatch) {
+          rowDate = new Date(parseInt(dMatch[3], 10), parseInt(dMatch[2], 10) - 1, parseInt(dMatch[1], 10));
+        } else {
+          var p = Date.parse(row[0]);
+          if (!isNaN(p)) rowDate = new Date(p);
+        }
+      }
+
+      var CUTOFF_DATE = new Date(2026, 8, 14, 0, 0, 0); // 14 September 2026 00:00:00
+      if (rowDate && rowDate < CUTOFF_DATE) {
+        continue; // Lewati data sebelum 14/09/2026 (fase test)
+      }
+
+      var namaStr = String(row[1] || "").toLowerCase();
+      var nipStr = String(row[2] || "").trim();
+      var alasanStr = String(row[14] || "").toLowerCase();
+      var isDummy = namaStr.indexOf("yusanto wibowo") !== -1 ||
+                    namaStr.indexOf("test") !== -1 ||
+                    namaStr.indexOf("dummy") !== -1 ||
+                    namaStr.indexOf("percobaan") !== -1 ||
+                    namaStr.indexOf("uji coba") !== -1 ||
+                    namaStr.indexOf("contoh") !== -1 ||
+                    alasanStr.indexOf("test") !== -1 ||
+                    /^(.)\1{10,}$/.test(nipStr);
+
+      if (isDummy) {
+        continue; // Lewati data dummy/uji coba
+      }
+
       if (seenKeys[uniqueKey]) {
         continue;
       }
@@ -406,4 +441,63 @@ function testTulisKeSheet() {
 
   simpanKeSheet(ss, contohData);
   return ContentService.createTextOutput("Uji coba simpanKeSheet berhasil dijalankan.").setMimeType(ContentService.MimeType.TEXT);
+}
+
+
+// =========================================================================
+// FUNGSI PEMBERSIHAN DATA SPREADSHEET (UJI COBA & SEBELUM 14 SEPTEMBER 2026)
+// =========================================================================
+function bersihkanDataUjiCobaDanSebelum14Sep() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Data_Responden");
+  if (!sheet || sheet.getLastRow() <= 1) {
+    Logger.log("Sheet Data_Responden masih kosong atau hanya berisi header.");
+    return "Sheet kosong.";
+  }
+
+  var values = sheet.getDataRange().getValues();
+  var rowsToDelete = [];
+  var CUTOFF_DATE = new Date(2026, 8, 14, 0, 0, 0); // 14 September 2026 00:00:00
+
+  for (var i = values.length - 1; i >= 1; i--) {
+    var row = values[i];
+    var rowDate = null;
+    if (row[0] instanceof Date) {
+      rowDate = row[0];
+    } else if (typeof row[0] === "string") {
+      var dMatch = row[0].match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+      if (dMatch) {
+        rowDate = new Date(parseInt(dMatch[3], 10), parseInt(dMatch[2], 10) - 1, parseInt(dMatch[1], 10));
+      } else {
+        var p = Date.parse(row[0]);
+        if (!isNaN(p)) rowDate = new Date(p);
+      }
+    }
+
+    var isBefore14 = rowDate && rowDate < CUTOFF_DATE;
+    var namaStr = String(row[1] || "").toLowerCase();
+    var nipStr = String(row[2] || "").trim();
+    var alasanStr = String(row[14] || "").toLowerCase();
+
+    var isDummy = namaStr.indexOf("yusanto wibowo") !== -1 ||
+                  namaStr.indexOf("test") !== -1 ||
+                  namaStr.indexOf("dummy") !== -1 ||
+                  namaStr.indexOf("percobaan") !== -1 ||
+                  namaStr.indexOf("uji coba") !== -1 ||
+                  namaStr.indexOf("contoh") !== -1 ||
+                  alasanStr.indexOf("test") !== -1 ||
+                  /^(.)\1{10,}$/.test(nipStr);
+
+    if (isBefore14 || isDummy) {
+      rowsToDelete.push(i + 1);
+    }
+  }
+
+  for (var d = 0; d < rowsToDelete.length; d++) {
+    sheet.deleteRow(rowsToDelete[d]);
+  }
+
+  var msg = "Berhasil membersihkan " + rowsToDelete.length + " baris data uji coba / sebelum 14 September 2026. Sisa data aktif: " + (sheet.getLastRow() - 1);
+  Logger.log(msg);
+  return msg;
 }

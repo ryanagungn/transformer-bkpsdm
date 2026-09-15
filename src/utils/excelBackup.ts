@@ -270,3 +270,71 @@ export function deduplicateRespondentRecords(records: RespondentRecord[]): Respo
 
   return Array.from(map.values()).map((v) => v.record);
 }
+
+
+// 6. Ambang Batas Tanggal Data Resmi (14 September 2026, 00:00:00 WIB)
+// Seluruh data submit sebelum tanggal ini dikategorikan data uji coba sistem (testing)
+export const CUTOFF_TIMESTAMP_MS = new Date(2026, 8, 14, 0, 0, 0).getTime();
+
+export function isDummyOrTestRecord(r: RespondentRecord): boolean {
+  const nama = (r.data?.nama || '').trim().toLowerCase();
+  const unit = (r.data?.unitKerja || '').trim().toLowerCase();
+  const nip = (r.data?.nip || '').trim().replace(/[\s\.\-]/g, '');
+  const alasan = (r.data?.alasanPrioritas || '').trim().toLowerCase();
+  const harapan = (r.data?.harapanBKPSDM || '').trim().toLowerCase();
+
+  const dummyKeywords = [
+    'test',
+    'testing',
+    'dummy',
+    'percobaan',
+    'uji coba',
+    'ujicoba',
+    'contoh',
+    'sample',
+    'yusanto wibowo'
+  ];
+
+  for (const kw of dummyKeywords) {
+    if (nama.includes(kw) || unit.includes(kw) || alasan.includes(kw) || harapan.includes(kw)) {
+      return true;
+    }
+  }
+
+  // Pola NIP fiktif / dummy
+  if (/^(.)\1{10,}$/.test(nip) || nip === '123456789012345678') {
+    return true;
+  }
+
+  return false;
+}
+
+export function isBefore14Sep2026(timestampStr: string): boolean {
+  if (!timestampStr) return true;
+  const ts = parseSafeTimestamp(timestampStr);
+  if (ts === 0) {
+    const m = timestampStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (m) {
+      const d = parseInt(m[1], 10);
+      const mth = parseInt(m[2], 10);
+      const yr = parseInt(m[3], 10);
+      if (yr === 2026 && (mth < 9 || (mth === 9 && d < 14))) {
+        return true;
+      }
+      if (yr < 2026) {
+        return true;
+      }
+    }
+    return false;
+  }
+  return ts < CUTOFF_TIMESTAMP_MS;
+}
+
+export function filterValidLiveRespondents(records: RespondentRecord[]): RespondentRecord[] {
+  if (!records || !Array.isArray(records)) return [];
+  return records.filter((r) => {
+    if (isDummyOrTestRecord(r)) return false;
+    if (isBefore14Sep2026(r.timestamp)) return false;
+    return true;
+  });
+}

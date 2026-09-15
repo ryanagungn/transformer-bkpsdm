@@ -4,6 +4,7 @@ import { MasterPegawai } from './types/pegawai';
 import { DEFAULT_MASTER_PEGAWAI } from './data/defaultPegawai';
 import { DEFAULT_GAS_URL } from './config/constants';
 import { calculateSurveyScore } from './utils/scoringEngine';
+import { filterValidLiveRespondents } from './utils/excelBackup';
 import { Header } from './components/Header';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { StepIdentity } from './components/StepIdentity';
@@ -359,7 +360,8 @@ export function App() {
     };
 
     try {
-      const existing: any[] = JSON.parse(localStorage.getItem('bkpsdm_survey_records') || '[]');
+      const rawExisting: any[] = JSON.parse(localStorage.getItem('bkpsdm_survey_records') || '[]');
+      const existing: any[] = filterValidLiveRespondents(rawExisting);
       const cleanNip = (sanitizedData.nip || '').trim().replace(/[\s\.\-]/g, '');
       const cleanNama = (sanitizedData.nama || '').trim().toLowerCase();
 
