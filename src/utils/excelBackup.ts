@@ -338,3 +338,61 @@ export function filterValidLiveRespondents(records: RespondentRecord[]): Respond
     return true;
   });
 }
+
+
+// 7. Pemformat Tanggal & Jam Bahasa Indonesia yang Mudah Dibaca & Dipahami
+export interface FormattedDateTime {
+  date: string;
+  time: string;
+  full: string;
+}
+
+export function parseReadableDateTime(str: string): FormattedDateTime {
+  if (!str || str === '-') {
+    return { date: '-', time: '-', full: '-' };
+  }
+
+  let dateObj: Date | null = null;
+
+  // 1. Cek format Indonesia dd/mm/yyyy atau dd-mm-yyyy
+  const m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:[,\s]+(\d{1,2})[:.](\d{1,2})(?:[:.](\d{1,2}))?)?/);
+  if (m) {
+    const day = parseInt(m[1], 10);
+    const month = parseInt(m[2], 10) - 1;
+    const year = parseInt(m[3], 10);
+    const hour = m[4] ? parseInt(m[4], 10) : 0;
+    const min = m[5] ? parseInt(m[5], 10) : 0;
+    const sec = m[6] ? parseInt(m[6], 10) : 0;
+    dateObj = new Date(year, month, day, hour, min, sec);
+  } else {
+    // 2. Parse string standar JS / ISO
+    const parsed = Date.parse(str);
+    if (!isNaN(parsed)) {
+      dateObj = new Date(parsed);
+    }
+  }
+
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    return { date: str, time: '', full: str };
+  }
+
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  const month = months[dateObj.getMonth()];
+  const year = dateObj.getFullYear();
+  const hours = String(dateObj.getHours()).padStart(2, '0');
+  const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+
+  const dateFormatted = `${day} ${month} ${year}`;
+  const timeFormatted = `${hours}:${minutes} WIB`;
+
+  return {
+    date: dateFormatted,
+    time: timeFormatted,
+    full: `${dateFormatted}, ${timeFormatted}`
+  };
+}
+
+export function formatReadableDateTime(str: string): string {
+  return parseReadableDateTime(str).full;
+}

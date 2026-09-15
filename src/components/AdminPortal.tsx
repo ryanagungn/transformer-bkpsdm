@@ -3,9 +3,10 @@ import { SurveyData, ScoringResult } from '../types/survey';
 import { MasterPegawai } from '../types/pegawai';
 import { DEFAULT_MASTER_PEGAWAI, downloadPegawaiTemplate, parsePegawaiExcel } from '../data/defaultPegawai';
 import { DEFAULT_GAS_TOKEN } from '../config/constants';
-import { downloadAllRecordsExcel, parseRespondentExcel, deduplicateRespondentRecords, downloadSingleSurveyExcel, filterValidLiveRespondents } from '../utils/excelBackup';
+import { downloadAllRecordsExcel, parseRespondentExcel, deduplicateRespondentRecords, downloadSingleSurveyExcel, filterValidLiveRespondents, parseReadableDateTime, formatReadableDateTime } from '../utils/excelBackup';
 import {
   LayoutDashboard,
+  Clock,
   Users,
   Database,
   Wand2,
@@ -1485,26 +1486,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <button
                 type="button"
                 onClick={handleExportCSV}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs shadow-xs cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs shadow-xs cursor-pointer"
               >
                 <Download className="w-4 h-4" /> CSV
-              </button>
-              <button
-                type="button"
-                onClick={handleCleanDummyAndPre14}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-xs cursor-pointer border border-amber-400"
-                title="Hapus data uji coba (dummy) dan data yang disubmit sebelum 14 September 2026"
-              >
-                <Sparkles className="w-4 h-4" /> Bersihkan Data Uji Coba (&lt; 14 Sep)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm('Hapus seluruh rekap responden lokal? Pastikan Anda sudah mengunduh cadangan Excel terlebih dahulu.')) saveRecords([]);
-                }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-50 font-bold text-xs cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4" /> Hapus Semua
               </button>
             </div>
           </div>
@@ -1543,7 +1527,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 ) : (
                   filteredRecords.map((r, i) => (
                     <tr key={i} className="hover:bg-blue-50/50 transition">
-                      <td className="p-3 text-slate-500 whitespace-nowrap">{r.timestamp}</td>
+                      <td className="p-3 whitespace-nowrap">
+                        <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                          {parseReadableDateTime(r.timestamp).date}
+                        </div>
+                        <div className="text-[11px] font-semibold text-slate-500 mt-0.5 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span>{parseReadableDateTime(r.timestamp).time}</span>
+                        </div>
+                      </td>
                       <td className="p-3">
                         <span className="font-bold text-slate-900 block">{r.data.nama}</span>
                         <span className="text-[11px] text-slate-500 font-mono">{r.data.nip || '-'}</span>
@@ -2067,7 +2059,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     <p><strong>Usia:</strong> {selectedRespondentDetail.data.usia || '-'} Tahun</p>
                     <p><strong>Pendidikan:</strong> {selectedRespondentDetail.data.pendidikan || '-'}</p>
                     <p><strong>Rencana Domisili:</strong> {selectedRespondentDetail.data.domisili || '-'}</p>
-                    <p><strong>Waktu Submit:</strong> {selectedRespondentDetail.timestamp}</p>
+                    <p><strong>Waktu Submit:</strong> <span className="font-semibold text-blue-950">{formatReadableDateTime(selectedRespondentDetail.timestamp)}</span></p>
                   </div>
                 </div>
 
