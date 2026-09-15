@@ -6,6 +6,27 @@ import { DEFAULT_GAS_TOKEN } from '../config/constants';
 import { downloadAllRecordsExcel, parseRespondentExcel, deduplicateRespondentRecords, downloadSingleSurveyExcel, filterValidLiveRespondents, parseReadableDateTime, formatReadableDateTime } from '../utils/excelBackup';
 import {
   LayoutDashboard,
+  Layers,
+  Building2,
+  Quote,
+  MessageSquare,
+  HeartHandshake,
+  BookOpen,
+  Coins,
+  Wallet,
+  Car,
+  Home,
+  Award,
+  Star,
+  Lightbulb,
+  Target,
+  MapPin,
+  GraduationCap,
+  Calendar,
+  Briefcase,
+  User,
+  RotateCcw,
+  Filter,
   Clock,
   Users,
   Database,
@@ -583,6 +604,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [searchPegawai, setSearchPegawai] = useState('');
   const [pegawaiPage, setPegawaiPage] = useState(1);
   const [selectedFilter, setSelectedFilter] = useState('ALL');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('ALL');
+  const [selectedMinatFilter, setSelectedMinatFilter] = useState<string>('ALL');
   const [testConnStatus, setTestConnStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
 
   // File upload ref Master Pegawai
@@ -972,14 +995,36 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
   const countMinat = (key: string) => getRespondentsByMinat(key).length;
 
-  const filteredRecords = records.filter((r) => {
-    const matchQuery =
-      (r.data.nama || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (r.data.unitKerja || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (r.data.prioritasUtama || '').toLowerCase().includes(searchQuery.toLowerCase());
+  // Pilihan Peminatan Unik yang Terdata dari Responden
+  const uniquePeminatanOptions = React.useMemo(() => {
+    const set = new Set<string>();
+    records.forEach((r) => {
+      const m = (r.data?.prioritasUtama || '').trim();
+      if (m && m !== '-') set.add(m);
+    });
+    return Array.from(set).sort();
+  }, [records]);
 
-    if (selectedFilter === 'ALL') return matchQuery;
-    return matchQuery && r.score.category === selectedFilter;
+  // Penyaringan Data Responden (Search + Filter Status Kesiapan + Filter Peminatan)
+  const filteredRecords = records.filter((r) => {
+    const q = searchQuery.toLowerCase().trim();
+    const matchQuery =
+      !q ||
+      (r.data?.nama || '').toLowerCase().includes(q) ||
+      (r.data?.nip || '').toLowerCase().includes(q) ||
+      (r.data?.unitKerja || '').toLowerCase().includes(q) ||
+      (r.data?.jabatan || '').toLowerCase().includes(q) ||
+      (r.data?.prioritasUtama || '').toLowerCase().includes(q);
+
+    const matchStatus =
+      selectedStatusFilter === 'ALL' ||
+      (r.score?.category || '').toLowerCase() === selectedStatusFilter.toLowerCase();
+
+    const matchMinat =
+      selectedMinatFilter === 'ALL' ||
+      (r.data?.prioritasUtama || '').toLowerCase() === selectedMinatFilter.toLowerCase();
+
+    return matchQuery && matchStatus && matchMinat;
   });
 
   const filteredPegawai = masterPegawai.filter((p) => {
@@ -1493,16 +1538,108 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </div>
           </div>
 
-          {importRespondentStatus && (
-            <div
-              className={`p-3.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 ${
-                importRespondentStatus.isError ? 'bg-rose-50 border border-rose-300 text-rose-900' : 'bg-emerald-50 border border-emerald-300 text-emerald-900'
-              }`}
-            >
-              {importRespondentStatus.isError ? <AlertCircle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
-              <span>{importRespondentStatus.message}</span>
+          {/* BAR PENCARIAN & FILTER KESIAPAN / PEMINATAN */}
+          <div className="p-4 rounded-2xl bg-slate-50 border-2 border-slate-200 space-y-3 shadow-2xs">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+              {/* Kolom Pencarian */}
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cari nama responden, NIP, dinas/OPD, jabatan, atau peminatan..."
+                  className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm bg-white border-2 border-slate-200 rounded-xl focus:border-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Filter Dropdown Status Kesiapan */}
+              <div className="flex items-center gap-2 sm:w-auto">
+                <div className="relative min-w-[170px] flex-1 sm:flex-none">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                    <Award className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <select
+                    value={selectedStatusFilter}
+                    onChange={(e) => setSelectedStatusFilter(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2.5 text-xs sm:text-sm bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-800 focus:border-blue-800 focus:outline-none cursor-pointer appearance-none shadow-2xs"
+                  >
+                    <option value="ALL">Semua Kesiapan</option>
+                    <option value="Sangat Siap">🟢 Sangat Siap</option>
+                    <option value="Siap">🔵 Siap</option>
+                    <option value="Potensial">🟡 Potensial</option>
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                    ▼
+                  </div>
+                </div>
+
+                {/* Filter Dropdown Peminatan Usaha */}
+                <div className="relative min-w-[190px] flex-1 sm:flex-none">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                    <Target className="w-4 h-4 text-blue-700" />
+                  </div>
+                  <select
+                    value={selectedMinatFilter}
+                    onChange={(e) => setSelectedMinatFilter(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2.5 text-xs sm:text-sm bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-800 focus:border-blue-800 focus:outline-none cursor-pointer appearance-none shadow-2xs truncate"
+                  >
+                    <option value="ALL">Semua Peminatan</option>
+                    {uniquePeminatanOptions.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                    ▼
+                  </div>
+                </div>
+
+                {/* Tombol Reset Filter jika ada filter aktif */}
+                {(searchQuery || selectedStatusFilter !== 'ALL' || selectedMinatFilter !== 'ALL') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSelectedStatusFilter('ALL');
+                      setSelectedMinatFilter('ALL');
+                    }}
+                    className="flex items-center gap-1 px-3 py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs transition cursor-pointer shrink-0"
+                    title="Reset semua filter ke kondisi awal"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Reset</span>
+                  </button>
+                )}
+              </div>
             </div>
-          )}
+
+            {/* Rekap Hasil Filter */}
+            <div className="flex items-center justify-between text-xs text-slate-600 pt-1 border-t border-slate-200/80">
+              <span>
+                Menampilkan <strong>{filteredRecords.length}</strong> dari total <strong>{records.length}</strong> responden terdata
+              </span>
+              {(selectedStatusFilter !== 'ALL' || selectedMinatFilter !== 'ALL' || searchQuery) && (
+                <span className="font-semibold text-blue-900 bg-blue-100/70 px-2 py-0.5 rounded-md text-[11px]">
+                  Filter Aktif: {[
+                    searchQuery ? `Pencarian "${searchQuery}"` : null,
+                    selectedStatusFilter !== 'ALL' ? `Kesiapan: ${selectedStatusFilter}` : null,
+                    selectedMinatFilter !== 'ALL' ? `Peminatan: ${selectedMinatFilter}` : null
+                  ].filter(Boolean).join(' • ')}
+                </span>
+              )}
+            </div>
+          </div>
 
           <div className="overflow-x-auto border border-slate-200 rounded-2xl">
             <table className="w-full text-left text-xs sm:text-sm">
@@ -2046,65 +2183,332 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </button>
               </div>
 
-              {/* Rincian Grid Jawaban */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Identitas */}
-                <div className="p-4 rounded-2xl border border-slate-200 space-y-2 bg-white">
-                  <h5 className="font-black text-xs uppercase tracking-wider text-blue-950 border-b border-slate-100 pb-1">
-                    A. Identitas & Profil Pegawai
-                  </h5>
-                  <div className="space-y-1 text-slate-700">
-                    <p><strong>Jabatan:</strong> {selectedRespondentDetail.data.jabatan || '-'}</p>
-                    <p><strong>Tahun Pensiun:</strong> {selectedRespondentDetail.data.tahunPensiun || '-'}</p>
-                    <p><strong>Usia:</strong> {selectedRespondentDetail.data.usia || '-'} Tahun</p>
-                    <p><strong>Pendidikan:</strong> {selectedRespondentDetail.data.pendidikan || '-'}</p>
-                    <p><strong>Rencana Domisili:</strong> {selectedRespondentDetail.data.domisili || '-'}</p>
-                    <p><strong>Waktu Submit:</strong> <span className="font-semibold text-blue-950">{formatReadableDateTime(selectedRespondentDetail.timestamp)}</span></p>
+              {/* Rincian Grid Jawaban dengan Ikon Lengkap & Tata Letak Bersih */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* KARTU A: IDENTITAS & PROFIL PEGAWAI */}
+                <div className="p-5 rounded-2xl border-2 border-blue-200/80 bg-white shadow-xs space-y-3.5">
+                  <div className="flex items-center gap-2 pb-2.5 border-b border-blue-100 text-blue-950">
+                    <div className="w-7 h-7 rounded-lg bg-blue-900 text-amber-300 flex items-center justify-center font-black text-xs shadow-xs">
+                      A
+                    </div>
+                    <h5 className="font-black text-xs sm:text-sm uppercase tracking-wider">
+                      Identitas & Profil Pegawai
+                    </h5>
+                  </div>
+
+                  <div className="space-y-2.5 text-xs sm:text-sm">
+                    <div className="flex items-start gap-2.5">
+                      <Briefcase className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-500 block">Jabatan Terakhir</span>
+                        <span className="font-bold text-slate-900">{selectedRespondentDetail.data.jabatan || '-'}</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                      <div className="flex items-start gap-2">
+                        <Calendar className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-500 block">Tahun Pensiun</span>
+                          <span className="inline-block px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 font-black text-xs border border-emerald-300">
+                            Tahun {selectedRespondentDetail.data.tahunPensiun || '-'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2">
+                        <User className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-500 block">Usia Saat Ini</span>
+                          <span className="font-bold text-slate-800">{selectedRespondentDetail.data.usia || '-'} Tahun</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 pt-1 border-t border-slate-100">
+                      <GraduationCap className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-500 block">Pendidikan Terakhir</span>
+                        <span className="font-bold text-slate-800">{selectedRespondentDetail.data.pendidikan || '-'}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 pt-1 border-t border-slate-100">
+                      <MapPin className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-500 block">Rencana Domisili Purna Tugas</span>
+                        <span className="font-bold text-slate-800">{selectedRespondentDetail.data.domisili || '-'}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 pt-1 border-t border-slate-100">
+                      <Clock className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-500 block">Waktu Submit Survei</span>
+                        <span className="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                          {formatReadableDateTime(selectedRespondentDetail.timestamp)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Peminatan & Keyakinan */}
-                <div className="p-4 rounded-2xl border border-slate-200 space-y-2 bg-white">
-                  <h5 className="font-black text-xs uppercase tracking-wider text-blue-950 border-b border-slate-100 pb-1">
-                    B. Peminatan & Pengalaman Usaha
-                  </h5>
-                  <div className="space-y-1 text-slate-700">
-                    <p><strong>Peminatan Utama:</strong> <span className="font-bold text-blue-900">{selectedRespondentDetail.data.prioritasUtama || '-'}</span></p>
-                    <p><strong>Alasan:</strong> {selectedRespondentDetail.data.alasanPrioritas || '-'}</p>
-                    <p><strong>Tingkat Keyakinan:</strong> {selectedRespondentDetail.data.keyakinanUsaha}/5</p>
-                    <p><strong>Pengalaman Usaha:</strong> {selectedRespondentDetail.data.pengalamanUsaha || '-'}</p>
-                    <p><strong>Keterampilan:</strong> {Array.isArray(selectedRespondentDetail.data.keterampilan) ? selectedRespondentDetail.data.keterampilan.join(', ') : '-'}</p>
+                {/* KARTU B: PEMINATAN & PENGALAMAN USAHA */}
+                <div className="p-5 rounded-2xl border-2 border-amber-200/80 bg-white shadow-xs space-y-3.5">
+                  <div className="flex items-center gap-2 pb-2.5 border-b border-amber-100 text-amber-950">
+                    <div className="w-7 h-7 rounded-lg bg-amber-600 text-white flex items-center justify-center font-black text-xs shadow-xs">
+                      B
+                    </div>
+                    <h5 className="font-black text-xs sm:text-sm uppercase tracking-wider">
+                      Peminatan & Pengalaman Usaha
+                    </h5>
+                  </div>
+
+                  <div className="space-y-2.5 text-xs sm:text-sm">
+                    <div className="flex items-start gap-2.5">
+                      <Target className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-500 block">Peminatan Usaha Utama</span>
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-blue-900 text-white font-black text-xs sm:text-sm shadow-xs mt-0.5">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                          {selectedRespondentDetail.data.prioritasUtama || '-'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 pt-1 border-t border-slate-100">
+                      <Quote className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="w-full">
+                        <span className="text-[11px] font-bold text-slate-500 block">Alasan Memilih Usaha Tersebut</span>
+                        <div className="mt-1 p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 text-amber-950 text-xs italic">
+                          &quot;{selectedRespondentDetail.data.alasanPrioritas || '-'}&quot;
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                      <div className="flex items-start gap-2">
+                        <Star className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-500 block">Tingkat Keyakinan</span>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-bold text-xs border border-amber-300">
+                            ⭐ {selectedRespondentDetail.data.keyakinanUsaha} / 5
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2">
+                        <Award className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-500 block">Pengalaman Usaha</span>
+                          <span className="font-bold text-slate-800">{selectedRespondentDetail.data.pengalamanUsaha || '-'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 pt-1 border-t border-slate-100">
+                      <Layers className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="w-full">
+                        <span className="text-[11px] font-bold text-slate-500 block">Keterampilan yang Dikuasai</span>
+                        {Array.isArray(selectedRespondentDetail.data.keterampilan) && selectedRespondentDetail.data.keterampilan.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {selectedRespondentDetail.data.keterampilan.map((k, idx) => (
+                              <span key={idx} className="inline-block px-2.5 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold">
+                                {k}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic text-xs">Tidak ada data</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Aset & Finansial */}
-                <div className="p-4 rounded-2xl border border-slate-200 space-y-2 bg-white">
-                  <h5 className="font-black text-xs uppercase tracking-wider text-blue-950 border-b border-slate-100 pb-1">
-                    C. Kesiapan Aset & Modal
-                  </h5>
-                  <div className="space-y-1 text-slate-700">
-                    <p><strong>Aset Dimiliki:</strong> {Array.isArray(selectedRespondentDetail.data.asetTersedia) ? selectedRespondentDetail.data.asetTersedia.join(', ') : '-'}</p>
-                    <p><strong>Kepemilikan Lahan:</strong> {selectedRespondentDetail.data.kepemilikanLahan || '-'}</p>
-                    <p><strong>Luas Lahan:</strong> {selectedRespondentDetail.data.perkiraanLuasLahan || '-'}</p>
-                    <p><strong>Kendaraan:</strong> {Array.isArray(selectedRespondentDetail.data.kendaraanTersedia) ? selectedRespondentDetail.data.kendaraanTersedia.join(', ') : '-'}</p>
-                    <p><strong>Modal Pribadi Siap Alokasi:</strong> {selectedRespondentDetail.data.modalPribadi || '-'}</p>
-                    <p><strong>Sumber Modal:</strong> {Array.isArray(selectedRespondentDetail.data.sumberModal) ? selectedRespondentDetail.data.sumberModal.join(', ') : '-'}</p>
+                {/* KARTU C: KESIAPAN ASET & MODAL */}
+                <div className="p-5 rounded-2xl border-2 border-emerald-200/80 bg-white shadow-xs space-y-3.5">
+                  <div className="flex items-center gap-2 pb-2.5 border-b border-emerald-100 text-emerald-950">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-700 text-white flex items-center justify-center font-black text-xs shadow-xs">
+                      C
+                    </div>
+                    <h5 className="font-black text-xs sm:text-sm uppercase tracking-wider">
+                      Kesiapan Aset & Modal
+                    </h5>
+                  </div>
+
+                  <div className="space-y-2.5 text-xs sm:text-sm">
+                    <div className="flex items-start gap-2.5">
+                      <Home className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                      <div className="w-full">
+                        <span className="text-[11px] font-bold text-slate-500 block">Aset Dimiliki</span>
+                        {Array.isArray(selectedRespondentDetail.data.asetTersedia) && selectedRespondentDetail.data.asetTersedia.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {selectedRespondentDetail.data.asetTersedia.map((a, idx) => (
+                              <span key={idx} className="inline-block px-2.5 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold">
+                                {a}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic text-xs">Tidak ada data</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                      <div className="flex items-start gap-2">
+                        <Building2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-500 block">Kepemilikan Lahan</span>
+                          <span className="font-bold text-slate-800">{selectedRespondentDetail.data.kepemilikanLahan || '-'}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2">
+                        <Layers className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-500 block">Luas Lahan</span>
+                          <span className="font-bold text-slate-800">{selectedRespondentDetail.data.perkiraanLuasLahan || '-'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 pt-1 border-t border-slate-100">
+                      <Car className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                      <div className="w-full">
+                        <span className="text-[11px] font-bold text-slate-500 block">Kendaraan Tersedia</span>
+                        {Array.isArray(selectedRespondentDetail.data.kendaraanTersedia) && selectedRespondentDetail.data.kendaraanTersedia.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {selectedRespondentDetail.data.kendaraanTersedia.map((k, idx) => (
+                              <span key={idx} className="inline-block px-2.5 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold">
+                                {k}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic text-xs">Tidak ada data</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                      <div className="flex items-start gap-2">
+                        <Coins className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-500 block">Modal Pribadi Siap Alokasi</span>
+                          <span className="font-bold text-slate-800">{selectedRespondentDetail.data.modalPribadi || '-'}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2">
+                        <Wallet className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-500 block">Sumber Modal Rencana</span>
+                          <span className="font-bold text-slate-800">
+                            {Array.isArray(selectedRespondentDetail.data.sumberModal) ? selectedRespondentDetail.data.sumberModal.join(', ') : (selectedRespondentDetail.data.sumberModal || '-')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Waktu & Program BKPSDM */}
-                <div className="p-4 rounded-2xl border border-slate-200 space-y-2 bg-white">
-                  <h5 className="font-black text-xs uppercase tracking-wider text-blue-950 border-b border-slate-100 pb-1">
-                    D. Waktu & Harapan ke BKPSDM
-                  </h5>
-                  <div className="space-y-1 text-slate-700">
-                    <p><strong>Waktu Harian:</strong> {selectedRespondentDetail.data.waktuHarian || '-'}</p>
-                    <p><strong>Model Keterlibatan:</strong> {selectedRespondentDetail.data.modelKeterlibatan || '-'}</p>
-                    <p><strong>Kesediaan Pelatihan:</strong> {selectedRespondentDetail.data.kesediaanPelatihan}/5</p>
-                    <p><strong>Topik Pelatihan:</strong> {Array.isArray(selectedRespondentDetail.data.topikPelatihan) ? selectedRespondentDetail.data.topikPelatihan.join(', ') : '-'}</p>
-                    <p><strong>Bentuk Pendampingan:</strong> {Array.isArray(selectedRespondentDetail.data.bentukPendampingan) ? selectedRespondentDetail.data.bentukPendampingan.join(', ') : '-'}</p>
-                    <p><strong>Kendala Terbesar:</strong> {Array.isArray(selectedRespondentDetail.data.kendalaTerbesar) ? selectedRespondentDetail.data.kendalaTerbesar.join(', ') : '-'}</p>
-                    <p><strong>Harapan ke BKPSDM:</strong> {selectedRespondentDetail.data.harapanBKPSDM || '-'}</p>
+                {/* KARTU D: WAKTU & HARAPAN KE BKPSDM */}
+                <div className="p-5 rounded-2xl border-2 border-indigo-200/80 bg-white shadow-xs space-y-3.5">
+                  <div className="flex items-center gap-2 pb-2.5 border-b border-indigo-100 text-indigo-950">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-900 text-white flex items-center justify-center font-black text-xs shadow-xs">
+                      D
+                    </div>
+                    <h5 className="font-black text-xs sm:text-sm uppercase tracking-wider">
+                      Waktu & Harapan ke BKPSDM
+                    </h5>
+                  </div>
+
+                  <div className="space-y-2.5 text-xs sm:text-sm">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex items-start gap-2">
+                        <Clock className="w-4 h-4 text-indigo-700 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-500 block">Alokasi Waktu Harian</span>
+                          <span className="font-bold text-slate-800">{selectedRespondentDetail.data.waktuHarian || '-'}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2">
+                        <BookOpen className="w-4 h-4 text-indigo-700 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-500 block">Kesediaan Pelatihan</span>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-900 font-bold text-xs border border-indigo-300">
+                            ⭐ {selectedRespondentDetail.data.kesediaanPelatihan} / 5
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 pt-1 border-t border-slate-100">
+                      <User className="w-4 h-4 text-indigo-700 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-500 block">Model Keterlibatan Usaha</span>
+                        <span className="font-bold text-slate-800">{selectedRespondentDetail.data.modelKeterlibatan || '-'}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 pt-1 border-t border-slate-100">
+                      <Lightbulb className="w-4 h-4 text-indigo-700 shrink-0 mt-0.5" />
+                      <div className="w-full">
+                        <span className="text-[11px] font-bold text-slate-500 block">Topik Pelatihan Dibutuhkan</span>
+                        {Array.isArray(selectedRespondentDetail.data.topikPelatihan) && selectedRespondentDetail.data.topikPelatihan.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {selectedRespondentDetail.data.topikPelatihan.map((t, idx) => (
+                              <span key={idx} className="inline-block px-2.5 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-900 text-xs font-semibold">
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic text-xs">Tidak ada data</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 pt-1 border-t border-slate-100">
+                      <HeartHandshake className="w-4 h-4 text-indigo-700 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-500 block">Bentuk Pendampingan Diharapkan</span>
+                        <span className="font-bold text-slate-800">
+                          {Array.isArray(selectedRespondentDetail.data.bentukPendampingan) ? selectedRespondentDetail.data.bentukPendampingan.join(', ') : (selectedRespondentDetail.data.bentukPendampingan || '-')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 pt-1 border-t border-slate-100">
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <div className="w-full">
+                        <span className="text-[11px] font-bold text-slate-500 block">Kendala Terbesar yang Dikhawatirkan</span>
+                        {Array.isArray(selectedRespondentDetail.data.kendalaTerbesar) && selectedRespondentDetail.data.kendalaTerbesar.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {selectedRespondentDetail.data.kendalaTerbesar.map((k, idx) => (
+                              <span key={idx} className="inline-block px-2.5 py-0.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-xs font-semibold">
+                                {k}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic text-xs">{selectedRespondentDetail.data.kendalaTerbesar || '-'}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 pt-1 border-t border-slate-100">
+                      <MessageSquare className="w-4 h-4 text-indigo-700 shrink-0 mt-0.5" />
+                      <div className="w-full">
+                        <span className="text-[11px] font-bold text-slate-500 block">Harapan & Masukan ke BKPSDM</span>
+                        <div className="mt-1 p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-200 text-indigo-950 text-xs italic">
+                          &quot;{selectedRespondentDetail.data.harapanBKPSDM || '-'}&quot;
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
