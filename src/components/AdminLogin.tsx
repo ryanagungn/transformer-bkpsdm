@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, ShieldAlert, KeyRound, Lock, User, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, KeyRound, Lock, User } from 'lucide-react';
 
 export interface AdminAccount {
   username: string;
@@ -159,12 +159,6 @@ export const AdminLogin: React.FC<Props> = ({ onSuccess, onCancel }) => {
           </div>
         </div>
 
-        {/* Info Akun yang Berhak Mengakses */}
-        <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-blue-700 shrink-0" />
-          <span>Akses khusus <strong>Admin Transformer</strong> & <strong>Kepala Bidang PPI</strong>.</span>
-        </div>
-
         {/* Notifikasi Terkunci (Brute-force Protection) */}
         {isLocked ? (
           <div className="p-4 rounded-2xl bg-rose-100 border-2 border-rose-400 text-rose-950 space-y-2 text-center animate-pulse">
@@ -203,7 +197,7 @@ export const AdminLogin: React.FC<Props> = ({ onSuccess, onCancel }) => {
                 required
                 disabled={isLocked}
                 autoFocus
-                placeholder="Masukkan username (admin / kabidppi)..."
+                placeholder="Masukkan username..."
                 value={username}
                 onChange={(e) => {
                   setUsername(e.target.value);
