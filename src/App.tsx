@@ -606,7 +606,7 @@ export function App() {
       </main>
 
       {/* FOOTER RESMI DUA LOGO & IDENTITAS MAJALENGKA */}
-      <footer className="bg-white border-t-2 border-slate-200 py-5 px-6 text-xs sm:text-sm text-slate-600 mt-auto">
+      <footer className="bg-white border-t-2 border-slate-200 py-5 px-6 text-xs sm:text-sm text-slate-600 mt-auto print:hidden">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3 justify-center sm:justify-start">
             <div className="flex items-center justify-center shrink-0">
