@@ -13,20 +13,40 @@
 @media print {
   @page {
     size: A4 portrait;
-    margin: 5mm 6mm 5mm 6mm;
+    margin: 6mm 8mm 6mm 8mm;
+  }
+
+  /* Hilangkan semua filter & efek rasterisasi agar Chromium menghasilkan PDF vektor murni yang tajam */
+  *, *::before, *::after {
+    filter: none !important;
+    -webkit-filter: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    transition: none !important;
   }
 
   html, body {
     background: #ffffff !important;
-    color: #000000 !important;
-    font-size: 12px !important;
-    line-height: 1.35 !important;
+    color: #0f172a !important;
+    font-size: 13px !important;
+    line-height: 1.4 !important;
     margin: 0 !important;
     padding: 0 !important;
     height: auto !important;
     overflow: visible !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: optimizeLegibility !important;
+  }
+
+  img {
+    image-rendering: -webkit-optimize-contrast !important;
+    image-rendering: high-quality !important;
+    max-width: 100% !important;
   }
 
   /* Sembunyikan elemen non-cetak */

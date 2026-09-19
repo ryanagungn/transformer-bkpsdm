@@ -2583,7 +2583,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
       {/* MODAL 3: PRATINJAU & CETAK KARTU PEMINATAN PRA-PENSIUN (PDF RESMI) */}
       {selectedRespondentPdf && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/75 backdrop-blur-xs overflow-y-auto print:static print:p-0 print:m-0 print:bg-transparent print:backdrop-none print:z-auto print:overflow-visible">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/80 overflow-y-auto print:static print:p-0 print:m-0 print:bg-transparent print:backdrop-blur-none print:z-auto print:overflow-visible">
           <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-300 overflow-hidden flex flex-col max-h-[92vh] print:max-h-none print:h-auto print:overflow-visible print:border-none print:shadow-none print:rounded-none print:w-full print:p-0">
             {/* Top Header Bar Admin (Disembunyikan saat mencetak) */}
             <div className="p-4 sm:p-5 bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 text-white flex items-center justify-between gap-3 shrink-0 print:hidden border-b-2 border-amber-400">
