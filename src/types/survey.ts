@@ -21,6 +21,7 @@ export interface SurveyData {
   keyakinanUsaha: number; // Skala 1-5
 
   // Bagian H-O: Pendalaman Sektor Khusus (Dynamic Branching)
+  detailSubsektor?: string;
   khususPertanian?: string[];
   khususPerikanan?: string[];
   khususPerkebunan?: string[];

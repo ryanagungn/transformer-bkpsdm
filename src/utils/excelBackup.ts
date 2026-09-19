@@ -189,6 +189,7 @@ export async function parseRespondentExcel(file: File): Promise<RespondentRecord
         prioritasUtama: String(row[13] || '-'),
         alasanPrioritas: String(row[14] || '-'),
         keyakinanUsaha: Number(row[15]) || 0,
+        detailSubsektor: String(row[16] || ''),
         asetTersedia: row[17] ? String(row[17]).split(', ') : [],
         kepemilikanLahan: String(row[18] || '-'),
         perkiraanLuasLahan: String(row[19] || '-'),

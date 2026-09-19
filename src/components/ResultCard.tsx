@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScoringResult, SurveyData } from '../types/survey';
+import { calculateSurveyScore } from '../utils/scoringEngine';
 import {
   Printer,
   RotateCcw,
@@ -7,29 +8,36 @@ import {
   CheckCircle2,
   ThumbsUp,
   Briefcase,
-  Layers
+  Layers,
+  X
 } from 'lucide-react';
 
 interface Props {
-  result: ScoringResult;
+  result?: ScoringResult;
   data: SurveyData;
-  syncStatus: 'idle' | 'saving' | 'synced' | 'local_only' | 'error';
-  syncMessage: string;
-  onReset: () => void;
+  syncStatus?: 'idle' | 'saving' | 'synced' | 'local_only' | 'error';
+  syncMessage?: string;
+  onReset?: () => void;
+  isAdminPreview?: boolean;
+  onClose?: () => void;
 }
 
 export const ResultCard: React.FC<Props> = ({
-  result,
+  result: propResult,
   data,
-  syncStatus,
-  syncMessage,
-  onReset
+  syncStatus = 'synced',
+  syncMessage = '',
+  onReset,
+  isAdminPreview = false,
+  onClose
 }) => {
   const handlePrint = () => {
     window.print();
   };
 
-  const selectedSubsectors = [
+  const result = propResult || calculateSurveyScore(data);
+
+  const subsectorsFromArrays = [
     data.khususPertanian && data.khususPertanian.length > 0 ? `Pertanian: ${data.khususPertanian.join(', ')}` : '',
     data.khususPerikanan && data.khususPerikanan.length > 0 ? `Perikanan: ${data.khususPerikanan.join(', ')}` : '',
     data.khususPerkebunan && data.khususPerkebunan.length > 0 ? `Perkebunan: ${data.khususPerkebunan.join(', ')}` : '',
@@ -40,19 +48,25 @@ export const ResultCard: React.FC<Props> = ({
     data.khususLainnya && data.khususLainnya.length > 0 ? `Lainnya: ${data.khususLainnya.join(', ')}` : ''
   ].filter(Boolean).join(' • ');
 
+  const selectedSubsectors = subsectorsFromArrays || data.detailSubsektor || (data as any).subsektor || '';
+
+  const recommendationText = (result?.recommendation && result.recommendation !== '-')
+    ? result.recommendation
+    : 'Disarankan untuk mengikuti program pembekalan wirausaha BKPSDM sesuai klaster peminatan pilihan guna mematangkan kesiapan praktis sebelum memasuki masa purna tugas.';
+
   return (
     <div className="space-y-6 print:m-0 print:p-0">
       {/* KARTU RESMI HASIL ASESMEN */}
       <div className="bg-white rounded-3xl border-3 border-blue-900/30 overflow-hidden shadow-xl print:shadow-none print:border-2 print:border-slate-800">
         {/* Banner Kop Surat dengan Logo Transformer & BKPSDM */}
-        <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 text-white p-6 sm:p-8 text-center relative border-b-4 border-amber-400">
+        <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 text-white print:bg-white print:text-slate-900 p-6 sm:p-8 text-center relative border-b-4 border-amber-400">
           <div className="flex items-center justify-center gap-4 mb-3">
             <img
               src="/logo_bkpsdm.png"
               alt="Logo BKPSDM Kab. Majalengka"
               className="h-11 sm:h-13 w-auto object-contain drop-shadow-md"
             />
-            <div className="w-11 h-11 sm:w-13 sm:h-13 rounded-2xl bg-white/10 p-1.5 backdrop-blur-xs border border-amber-400/60 shadow-inner flex items-center justify-center shrink-0">
+            <div className="w-11 h-11 sm:w-13 sm:h-13 rounded-2xl bg-white/10 print:bg-slate-100 p-1.5 backdrop-blur-xs border border-amber-400/60 shadow-inner flex items-center justify-center shrink-0">
               <img
                 src="/logo_transformer.png"
                 alt="Logo Transformer BKPSDM"
@@ -60,14 +74,14 @@ export const ResultCard: React.FC<Props> = ({
               />
             </div>
           </div>
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/15 text-amber-300 text-xs sm:text-sm font-extrabold tracking-wide mb-2 border border-white/20">
-            <Sparkles className="w-4 h-4" />
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/15 print:bg-amber-100/60 print:border-amber-300 text-amber-300 print:text-amber-900 text-xs sm:text-sm font-extrabold tracking-wide mb-2 border border-white/20">
+            <Sparkles className="w-4 h-4 text-amber-300 print:text-amber-700" />
             Laporan Peminatan & Kesiapan Kewirausahaan ASN
           </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight print:text-slate-950">
             Kartu Peminatan Usaha Pra-Pensiun
           </h1>
-          <p className="text-blue-200 text-sm sm:text-base mt-2 max-w-xl mx-auto font-medium">
+          <p className="text-blue-200 print:text-slate-600 text-sm sm:text-base mt-2 max-w-xl mx-auto font-medium">
             Badan Kepegawaian dan Pengembangan Sumber Daya Manusia (BKPSDM) Pemerintah Daerah Kabupaten Majalengka
           </p>
         </div>
@@ -155,7 +169,7 @@ export const ResultCard: React.FC<Props> = ({
               Rekomendasi Program Tindak Lanjut Pembekalan BKPSDM:
             </h3>
             <p className="text-sm sm:text-base text-amber-950 font-semibold leading-relaxed">
-              {result.recommendation}
+              {recommendationText}
             </p>
           </div>
 
@@ -184,14 +198,25 @@ export const ResultCard: React.FC<Props> = ({
 
         {/* Tombol Cetak / Selesai */}
         <div className="px-6 sm:px-8 py-6 bg-slate-100 border-t-2 border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 print:hidden">
-          <button
-            type="button"
-            onClick={onReset}
-            className="w-full sm:w-auto flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl border-2 border-slate-300 text-slate-800 font-bold hover:bg-slate-200 transition text-base cursor-pointer shadow-xs"
-          >
-            <RotateCcw className="w-5 h-5" />
-            Isi Formulir Baru
-          </button>
+          {isAdminPreview ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full sm:w-auto flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl border-2 border-slate-300 text-slate-800 font-bold hover:bg-slate-200 transition text-base cursor-pointer shadow-xs"
+            >
+              <X className="w-5 h-5" />
+              Tutup Pratinjau
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onReset}
+              className="w-full sm:w-auto flex items-center justify-center gap-2.5 px-6 py-4 rounded-2xl border-2 border-slate-300 text-slate-800 font-bold hover:bg-slate-200 transition text-base cursor-pointer shadow-xs"
+            >
+              <RotateCcw className="w-5 h-5" />
+              Isi Formulir Baru
+            </button>
+          )}
 
           <button
             type="button"

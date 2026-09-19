@@ -23,7 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
   const progressPercent = isCompleted ? 100 : Math.min(100, Math.round((currentStep / totalSteps) * 100));
 
   return (
-    <header className="bg-white border-b-2 border-blue-900/20 sticky top-0 z-30 shadow-md">
+    <header className="bg-white border-b-2 border-blue-900/20 sticky top-0 z-30 shadow-md print:hidden">
       {/* Top Banner: Logo BKPSDM & Transformers + Navy Blue & Amber Accent Palette */}
       <div className="bg-gradient-to-r from-blue-950 via-[#002060] to-slate-900 text-white px-4 py-3 sm:py-3.5 border-b-4 border-amber-500">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">

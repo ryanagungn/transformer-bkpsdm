@@ -11,7 +11,28 @@
 }
 
 @media print {
-  html {
-    font-size: 14px !important;
+  @page {
+    size: A4 portrait;
+    margin: 8mm 8mm 8mm 8mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 13px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Sembunyikan elemen non-cetak */
+  header,
+  nav,
+  .print\:hidden {
+    display: none !important;
   }
 }
+
