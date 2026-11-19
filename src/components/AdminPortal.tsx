@@ -639,12 +639,41 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   // Modal Pratinjau & Cetak Dokumen Kartu Peminatan (PDF)
   const [selectedRespondentPdf, setSelectedRespondentPdf] = useState<RespondentRecord | null>(null);
 
-  // Fungsi Sinkronisasi Real-Time dari Google Spreadsheet
+  // Fungsi Sinkronisasi Real-Time dari Database PostgreSQL BKPSDM / Google Spreadsheet
   const fetchRealtimeFromGoogleSheets = async (isManual: boolean = false) => {
-    if (!urlInput || urlInput.trim() === '') return;
-
     setIsSyncingRealtime(true);
     setLastSyncStatus(null);
+
+    // 1. Coba sinkronisasi langsung dari Database PostgreSQL Internal BKPSDM
+    const pgApiUrl = window.location.pathname.startsWith('/transformers-asn')
+      ? '/transformers-asn/api/respondents'
+      : '/api/respondents';
+
+    try {
+      const pgResponse = await fetch(pgApiUrl, { method: 'GET' });
+      if (pgResponse.ok) {
+        const pgResult = await pgResponse.json();
+        if (pgResult && pgResult.status === 'success' && Array.isArray(pgResult.records)) {
+          const validRecords = filterValidLiveRespondents(pgResult.records);
+          const cleanRecords = deduplicateRespondentRecords(validRecords);
+          setRecords(cleanRecords);
+          localStorage.setItem('bkpsdm_survey_records', JSON.stringify(cleanRecords));
+          setLastSyncStatus(`✓ Terhubung Database PostgreSQL BKPSDM (Live): ${cleanRecords.length} responden tersinkronisasi (${pgResult.lastUpdated || new Date().toLocaleTimeString('id-ID')}).`);
+          if (isManual) {
+            alert(`Berhasil! ${cleanRecords.length} data responden termutakhir berhasil ditarik dari Database PostgreSQL BKPSDM.`);
+          }
+          setIsSyncingRealtime(false);
+          return;
+        }
+      }
+    } catch (pgErr) {
+      console.warn('PostgreSQL API pull failed, falling back to Google Sheets:', pgErr);
+    }
+
+    if (!urlInput || urlInput.trim() === '') {
+      setIsSyncingRealtime(false);
+      return;
+    }
 
     try {
       const fetchUrl = urlInput.includes('?')

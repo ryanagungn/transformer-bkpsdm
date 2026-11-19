@@ -390,8 +390,31 @@ export function App() {
       submittedAt: new Date().toISOString()
     };
 
+    setSyncStatus('saving');
+    let pgSuccess = false;
+
+    // 1. Kirim ke Database PostgreSQL Internal BKPSDM
+    const pgApiUrl = window.location.pathname.startsWith('/transformers-asn')
+      ? '/transformers-asn/api/survey'
+      : '/api/survey';
+
+    try {
+      const pgRes = await fetch(pgApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (pgRes.ok) {
+        pgSuccess = true;
+        setSyncStatus('synced');
+        setSyncMessage('Data resmi berhasil tersimpan di Database PostgreSQL BKPSDM.');
+      }
+    } catch (pgErr) {
+      console.warn('PostgreSQL API submit failed, using fallback:', pgErr);
+    }
+
+    // 2. Kirim ke Google Sheets sebagai cadangan sekunder jika URL terkonfigurasi
     if (scriptUrl && scriptUrl.trim() !== '') {
-      setSyncStatus('saving');
       try {
         await fetch(scriptUrl, {
           method: 'POST',
@@ -399,14 +422,18 @@ export function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        setSyncStatus('synced');
-        setSyncMessage('Data berhasil dikirim ke Google Sheets.');
+        if (!pgSuccess) {
+          setSyncStatus('synced');
+          setSyncMessage('Data berhasil dikirim ke Google Sheets cadangan.');
+        }
       } catch (err: any) {
-        console.error('Sync error:', err);
-        setSyncStatus('error');
-        setSyncMessage('Gagal mengirim ke Google Sheets, namun data lokal tetap aman.');
+        console.error('Secondary Google Sheets sync error:', err);
+        if (!pgSuccess) {
+          setSyncStatus('error');
+          setSyncMessage('Gagal mengirim ke Google Sheets, namun data lokal tetap aman.');
+        }
       }
-    } else {
+    } else if (!pgSuccess) {
       setSyncStatus('local_only');
       setSyncMessage('Data tersimpan secara lokal di browser.');
     }
