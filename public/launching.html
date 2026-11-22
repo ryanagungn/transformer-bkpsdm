@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Peluncuran Resmi TRANSFORMERS 2026 - BKPSDM Majalengka</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #020617;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      color: #ffffff;
+    }
+
+    /* Canvas for particle fireworks & energy shockwaves */
+    #fxCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    /* Ambient background gradient glow */
+    .bg-ambient {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, #1e1b4b 0%, #090d16 55%, #020617 100%);
+      z-index: 1;
+      transition: background 1.5s ease;
+    }
+
+    .bg-ambient.launched {
+      background: radial-gradient(circle at 50% 45%, #1e3a8a 0%, #0f172a 60%, #020617 100%);
+    }
+
+    /* Screen flash on launch */
+    #flashOverlay {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle, #ffffff 10%, #fbbf24 60%, transparent 95%);
+      opacity: 0;
+      z-index: 30;
+      pointer-events: none;
+      transition: opacity 0.15s ease-out;
+    }
+
+    /* Main Container */
+    .stage-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 3.5rem 2rem 2.5rem;
+      z-index: 20;
+    }
+
+    /* Top Brand Bar */
+    .top-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      text-align: center;
+      animation: fadeInDown 1s ease-out forwards;
+    }
+
+    .logos-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1.75rem;
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 0.85rem 2.5rem;
+      border-radius: 9999px;
+      border: 1px solid rgba(251, 191, 36, 0.35);
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(251, 191, 36, 0.1);
+    }
+
+    .logos-wrapper img {
+      height: 52px;
+      width: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
+    }
+
+    .logo-divider {
+      width: 1.5px;
+      height: 38px;
+      background: linear-gradient(to bottom, transparent, rgba(251, 191, 36, 0.6), transparent);
+    }
+
+    .badge-gov {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 1.25rem;
+      border-radius: 9999px;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: #fde68a;
+      font-size: 0.85rem;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    /* Center Section (Standby vs Launched) */
+    .center-content {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      flex: 1;
+      width: 100%;
+      max-width: 1100px;
+    }
+
+    /* Standby UI */
+    #standbyView {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+      transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .radar-box {
+      position: relative;
+      width: 220px;
+      height: 220px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .pulse-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px solid rgba(245, 158, 11, 0.4);
+      animation: radarPulse 2.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+
+    .pulse-ring:nth-child(2) {
+      animation-delay: 0.9s;
+    }
+
+    .pulse-ring:nth-child(3) {
+      animation-delay: 1.8s;
+    }
+
+    .launch-core-button {
+      position: relative;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #f59e0b 0%, #b45309 60%, #78350f 100%);
+      border: 3px solid rgba(254, 243, 199, 0.7);
+      box-shadow: 0 0 50px rgba(245, 158, 11, 0.5), inset 0 0 25px rgba(255, 255, 255, 0.4);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-weight: 900;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .launch-core-button:hover {
+      transform: scale(1.08);
+      box-shadow: 0 0 70px rgba(245, 158, 11, 0.8), inset 0 0 30px rgba(255, 255, 255, 0.6);
+    }
+
+    .launch-core-button:active {
+      transform: scale(0.95);
+    }
+
+    .launch-core-button svg {
+      width: 44px;
+      height: 44px;
+      fill: none;
+      stroke: #ffffff;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.4));
+      margin-bottom: 4px;
+      animation: bellWobble 2s infinite ease-in-out;
+    }
+
+    .standby-title {
+      font-size: 1.5rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #f8fafc;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+    }
+
+    .standby-subtitle {
+      font-size: 1.1rem;
+      color: #94a3b8;
+      max-width: 700px;
+      line-height: 1.6;
+      font-weight: 500;
+    }
+
+    .standby-action-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      padding: 0.6rem 1.4rem;
+      border-radius: 9999px;
+      font-size: 0.9rem;
+      color: #cbd5e1;
+    }
+
+    .key-badge {
+      background: #334155;
+      color: #f8fafc;
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      font-family: monospace;
+      font-weight: 800;
+      border: 1px solid #64748b;
+    }
+
+    /* Launched Climax UI */
+    #launchedView {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      width: 100%;
+    }
+
+    .launched-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.6rem 2rem;
+      border-radius: 9999px;
+      background: linear-gradient(90deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.4), rgba(245, 158, 11, 0.2));
+      border: 1.5px solid #fbbf24;
+      box-shadow: 0 0 30px rgba(245, 158, 11, 0.4);
+      color: #fef08a;
+      font-size: 1.05rem;
+      font-weight: 900;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 1.25rem;
+      animation: zoomInBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    .launched-main-title {
+      font-size: 4rem;
+      line-height: 1.1;
+      font-weight: 950;
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #ffffff 20%, #fef08a 50%, #f59e0b 80%, #d97706 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 10px 25px rgba(245, 158, 11, 0.35));
+      animation: zoomInTitle 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .launched-bupati-line {
+      font-size: 1.85rem;
+      font-weight: 900;
+      color: #38bdf8;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-top: 0.75rem;
+      text-shadow: 0 0 20px rgba(56, 189, 248, 0.6);
+      animation: fadeInUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .launched-motto {
+      font-size: 1.25rem;
+      color: #e2e8f0;
+      margin-top: 1.25rem;
+      max-width: 800px;
+      font-weight: 600;
+      line-height: 1.5;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+      animation: fadeInUp 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Video Player Overlay (Transitions automatically after bumper) */
+    #videoModal {
+      position: absolute;
+      inset: 0;
+      background: #000000;
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 1s ease-in-out;
+    }
+
+    #videoModal.show {
+      display: flex;
+      opacity: 1;
+    }
+
+    #mainVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .video-close-btn {
+      position: absolute;
+      top: 1.5rem;
+      right: 1.5rem;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      z-index: 60;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    #videoModal:hover .video-close-btn {
+      opacity: 1;
+    }
+
+    /* Bottom Control Bar / Status */
+    .bottom-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 1200px;
+      padding: 0.75rem 1.5rem;
+      background: rgba(15, 23, 42, 0.5);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+
+    .bottom-controls {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .ctrl-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #f1f5f9;
+      padding: 0.4rem 0.9rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s;
+    }
+
+    .ctrl-btn:hover {
+      background: rgba(255, 255, 255, 0.18);
+      color: #ffffff;
+    }
+
+    /* Secret settings panel */
+    #settingsPanel {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      border-radius: 16px;
+      padding: 1.5rem;
+      width: 320px;
+      z-index: 70;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+      display: none;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    #settingsPanel.open {
+      display: flex;
+    }
+
+    .settings-title {
+      font-size: 1rem;
+      font-weight: 800;
+      color: #fde68a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .settings-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      font-size: 0.8rem;
+    }
+
+    .settings-group label {
+      color: #94a3b8;
+      font-weight: 600;
+    }
+
+    .settings-group input[type="file"],
+    .settings-group select {
+      background: #1e293b;
+      border: 1px solid #475569;
+      color: #ffffff;
+      padding: 0.4rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+    }
+
+    /* Keyframe Animations */
+    @keyframes radarPulse {
+      0% {
+        transform: scale(0.7);
+        opacity: 0.9;
+      }
+      100% {
+        transform: scale(1.6);
+        opacity: 0;
+      }
+    }
+
+    @keyframes bellWobble {
+      0%, 100% { transform: rotate(0deg); }
+      15% { transform: rotate(-10deg); }
+      30% { transform: rotate(10deg); }
+      45% { transform: rotate(-6deg); }
+      60% { transform: rotate(6deg); }
+      75% { transform: rotate(0deg); }
+    }
+
+    @keyframes fadeInDown {
+      from {
+        opacity: 0;
+        transform: translateY(-30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes zoomInBounce {
+      0% {
+        opacity: 0;
+        transform: scale(0.3);
+      }
+      70% {
+        opacity: 1;
+        transform: scale(1.1);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    @keyframes zoomInTitle {
+      0% {
+        opacity: 0;
+        transform: scale(0.6);
+        letter-spacing: 0.1em;
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+        letter-spacing: -0.02em;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient background -->
+  <div class="bg-ambient" id="ambientBg"></div>
+
+  <!-- Flash White Screen on Launch Trigger -->
+  <div id="flashOverlay"></div>
+
+  <!-- Canvas for high performance physics & confetti -->
+  <canvas id="fxCanvas"></canvas>
+
+  <!-- Main Stage Layout -->
+  <div class="stage-container">
+    
+    <!-- Top Official Branding -->
+    <header class="top-header">
+      <div class="logos-wrapper">
+        <img src="/logo_bkpsdm.png" alt="Logo BKPSDM Kab. Majalengka">
+        <div class="logo-divider"></div>
+        <img src="/logo_transformer.png" alt="Logo Transformers">
+      </div>
+      <div class="badge-gov">
+        Pemerintah Daerah Kabupaten Majalengka
+      </div>
+    </header>
+
+    <!-- Center Section: Standby vs Launched -->
+    <main class="center-content">
+      
+      <!-- 1. STANDBY STATE -->
+      <div id="standbyView">
+        <div class="radar-box" id="radarBtn" title="Tekan Bel untuk Meluncurkan">
+          <div class="pulse-ring"></div>
+          <div class="pulse-ring"></div>
+          <div class="pulse-ring"></div>
+          <div class="launch-core-button">
+            <svg viewBox="0 0 24 24">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            <span>LUNCURKAN</span>
+          </div>
+        </div>
+
+        <div>
+          <h2 class="standby-title">STANDBY PELUNCURAN RESMI</h2>
+          <p class="standby-subtitle">
+            Menunggu penekanan bel seremonial oleh Bapak Bupati Majalengka untuk meresmikan Program TRANSFORMERS 2026.
+          </p>
+        </div>
+
+        <div class="standby-action-hint">
+          <span>Pemicu Panggung:</span>
+          <span class="key-badge">SPASI</span> atau <span class="key-badge">ENTER</span> atau klik tombol bel di tengah
+        </div>
+      </div>
+
+      <!-- 2. LAUNCHED CELEBRATION STATE -->
+      <div id="launchedView">
+        <div class="launched-badge">
+          ★ RESMI DILUNCURKAN ★
+        </div>
+        <h1 class="launched-main-title">
+          TRANSFORMERS 2026
+        </h1>
+        <div class="launched-bupati-line">
+          Oleh Bupati Majalengka
+        </div>
+        <p class="launched-motto">
+          Program Kewirausahaan Pra-Pensiun ASN: Mempersiapkan Masa Purna Tugas yang Tangguh, Mandiri, dan Penuh Keberkahan
+        </p>
+      </div>
+
+    </main>
+
+    <!-- Bottom Operator Status & Controls -->
+    <footer class="bottom-bar">
+      <div>
+        <span id="statusIndicator">🟢 Sistem Siap (Tekan <strong>Spasi</strong> saat bel ditekan)</span>
+      </div>
+
+      <div class="bottom-controls">
+        <button class="ctrl-btn" id="btnFullscreen" title="Layar Penuh (F)">
+          <span>⛶ Layar Penuh</span>
+        </button>
+        <button class="ctrl-btn" id="btnReset" title="Reset ke Mode Standby (R)">
+          <span>↺ Reset</span>
+        </button>
+        <button class="ctrl-btn" id="btnSettings" title="Pengaturan Video / Suara">
+          <span>⚙ Opsi</span>
+        </button>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Settings Drawer for FOH Operator -->
+  <div id="settingsPanel">
+    <div class="settings-title">
+      <span>Pengaturan Panggung (FOH)</span>
+      <button class="ctrl-btn" id="btnCloseSettings">✕</button>
+    </div>
+
+    <div class="settings-group">
+      <label>File Video Utama (MP4):</label>
+      <input type="file" id="videoFileInput" accept="video/mp4,video/webm">
+      <small style="color: #64748b; font-size: 0.7rem;">Otomatis diputar setelah seremoni kembang api selesai.</small>
+    </div>
+
+    <div class="settings-group">
+      <label>Jeda Sebelum Video (Detik):</label>
+      <select id="videoDelaySelect">
+        <option value="6">6 Detik</option>
+        <option value="8" selected>8 Detik</option>
+        <option value="12">12 Detik</option>
+        <option value="999">Jangan Otomatis (Tampilkan Bumper Saja)</option>
+      </select>
+    </div>
+
+    <div class="settings-group">
+      <label>Audio Generator:</label>
+      <select id="soundPresetSelect">
+        <option value="synth" selected>Synthesizer Sub-Bass & Sirene (Bawaan)</option>
+        <option value="mute">Senyap (Audio dari Mixer FOH)</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Fullscreen Video Player Modal -->
+  <div id="videoModal">
+    <button class="video-close-btn" id="btnCloseVideo">✕ Tutup Video (Kembali ke Bumper)</button>
+    <video id="mainVideo" controls playsinline></video>
+  </div>
+
+  <script>
+    // ==========================================
+    // 1. STATE & AUDIO SYNTHESIZER
+    // ==========================================
+    let isLaunched = false;
+    let audioCtx = null;
+    let particles = [];
+    let shockwaves = [];
+    let animationFrameId = null;
+    let launchTimer = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    // Pure Web Audio API: Epic Cinematic Launch Sound (Sub-bass drop, siren riser, and grand chord)
+    function playCeremonialAudio() {
+      const mode = document.getElementById('soundPresetSelect').value;
+      if (mode === 'mute') return;
+
+      initAudio();
+      const now = audioCtx.currentTime;
+
+      // 1. Initial Siren / Charge-up Buzz (Bel Panggung)
+      const sirenOsc = audioCtx.createOscillator();
+      const sirenGain = audioCtx.createGain();
+      sirenOsc.type = 'sawtooth';
+      sirenOsc.frequency.setValueAtTime(440, now);
+      sirenOsc.frequency.exponentialRampToValueAtTime(880, now + 0.35);
+      sirenGain.gain.setValueAtTime(0.2, now);
+      sirenGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      sirenOsc.connect(sirenGain);
+      sirenGain.connect(audioCtx.destination);
+      sirenOsc.start(now);
+      sirenOsc.stop(now + 0.45);
+
+      // 2. Massive Cinematic Sub-Bass Impact (Deep Boom)
+      const subOsc = audioCtx.createOscillator();
+      const subGain = audioCtx.createGain();
+      subOsc.type = 'sine';
+      subOsc.frequency.setValueAtTime(140, now + 0.1);
+      subOsc.frequency.exponentialRampToValueAtTime(32, now + 1.8);
+      subGain.gain.setValueAtTime(0.7, now + 0.1);
+      subGain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
+      subOsc.connect(subGain);
+      subGain.connect(audioCtx.destination);
+      subOsc.start(now + 0.1);
+      subOsc.stop(now + 2.6);
+
+      // 3. Impact White Noise Blast (Percikan Energi)
+      const bufferSize = audioCtx.sampleRate * 1.5;
+      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      const whiteNoise = audioCtx.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+      const noiseFilter = audioCtx.createBiquadFilter();
+      noiseFilter.type = 'lowpass';
+      noiseFilter.frequency.setValueAtTime(800, now + 0.1);
+      noiseFilter.frequency.exponentialRampToValueAtTime(60, now + 1.5);
+
+      const noiseGain = audioCtx.createGain();
+      noiseGain.gain.setValueAtTime(0.4, now + 0.1);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+
+      whiteNoise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(audioCtx.destination);
+      whiteNoise.start(now + 0.1);
+      whiteNoise.stop(now + 1.6);
+
+      // 4. Triumphant Brass Chord (D Mayor: D4, F#4, A4, D5)
+      const chordFreqs = [293.66, 369.99, 440.00, 587.33];
+      chordFreqs.forEach((freq, idx) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + 0.25);
+        gain.gain.setValueAtTime(0, now + 0.25);
+        gain.gain.linearRampToValueAtTime(0.12, now + 0.5);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 3.5);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now + 0.25);
+        osc.stop(now + 3.6);
+      });
+    }
+
+    // ==========================================
+    // 2. CANVAS PARTICLE & FIREWORK ENGINE
+    // ==========================================
+    const canvas = document.getElementById('fxCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    class Shockwave {
+      constructor(x, y, maxRadius, color) {
+        this.x = x;
+        this.y = y;
+        this.radius = 10;
+        this.maxRadius = maxRadius;
+        this.color = color;
+        this.alpha = 1;
+        this.lineWidth = 14;
+      }
+      update() {
+        this.radius += (this.maxRadius - this.radius) * 0.08 + 4;
+        this.lineWidth *= 0.95;
+        this.alpha = Math.max(0, 1 - (this.radius / this.maxRadius));
+      }
+      draw(c) {
+        if (this.alpha <= 0) return;
+        c.save();
+        c.beginPath();
+        c.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        c.strokeStyle = this.color;
+        c.lineWidth = Math.max(1, this.lineWidth);
+        c.globalAlpha = this.alpha;
+        c.stroke();
+        c.restore();
+      }
+    }
+
+    class Particle {
+      constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 16 + 4;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.radius = Math.random() * 4 + 2;
+        this.color = color;
+        this.alpha = 1;
+        this.decay = Math.random() * 0.015 + 0.008;
+        this.gravity = 0.18;
+        this.drag = 0.97;
+      }
+      update() {
+        this.vx *= this.drag;
+        this.vy *= this.drag;
+        this.vy += this.gravity;
+        this.x += this.vx;
+        this.y += this.vy;
+        this.alpha -= this.decay;
+      }
+      draw(c) {
+        if (this.alpha <= 0) return;
+        c.save();
+        c.beginPath();
+        c.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        c.fillStyle = this.color;
+        c.globalAlpha = this.alpha;
+        c.shadowColor = this.color;
+        c.shadowBlur = 10;
+        c.fill();
+        c.restore();
+      }
+    }
+
+    class Confetti {
+      constructor() {
+        this.x = Math.random() * canvas.width;
+        this.y = -20;
+        this.w = Math.random() * 12 + 6;
+        this.h = Math.random() * 8 + 4;
+        this.color = ['#fbbf24', '#f59e0b', '#38bdf8', '#60a5fa', '#f43f5e', '#ffffff'][Math.floor(Math.random() * 6)];
+        this.vx = (Math.random() - 0.5) * 4;
+        this.vy = Math.random() * 4 + 3;
+        this.rotation = Math.random() * 360;
+        this.rotSpeed = (Math.random() - 0.5) * 10;
+        this.alpha = 1;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.rotation += this.rotSpeed;
+        if (this.y > canvas.height + 20) {
+          this.alpha = 0;
+        }
+      }
+      draw(c) {
+        if (this.alpha <= 0) return;
+        c.save();
+        c.translate(this.x, this.y);
+        c.rotate(this.rotation * Math.PI / 180);
+        c.fillStyle = this.color;
+        c.globalAlpha = this.alpha;
+        c.fillRect(-this.w / 2, -this.h / 2, this.w, this.h);
+        c.restore();
+      }
+    }
+
+    function createExplosion(x, y) {
+      const colors = ['#fde047', '#fbbf24', '#f59e0b', '#38bdf8', '#0284c7', '#ffffff'];
+      // Shockwaves
+      shockwaves.push(new Shockwave(x, y, Math.max(canvas.width, canvas.height) * 0.9, 'rgba(251, 191, 36, 0.9)'));
+      shockwaves.push(new Shockwave(x, y, Math.max(canvas.width, canvas.height) * 0.7, 'rgba(56, 189, 248, 0.8)'));
+
+      // Particles
+      for (let i = 0; i < 280; i++) {
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        particles.push(new Particle(x, y, color));
+      }
+    }
+
+    function spawnContinuousConfetti() {
+      if (!isLaunched) return;
+      for (let i = 0; i < 5; i++) {
+        particles.push(new Confetti());
+      }
+    }
+
+    function renderLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw shockwaves
+      for (let i = shockwaves.length - 1; i >= 0; i--) {
+        shockwaves[i].update();
+        shockwaves[i].draw(ctx);
+        if (shockwaves[i].alpha <= 0) {
+          shockwaves.splice(i, 1);
+        }
+      }
+
+      // Draw particles / confetti
+      for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        particles[i].draw(ctx);
+        if (particles[i].alpha <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+
+      if (isLaunched && Math.random() < 0.75) {
+        spawnContinuousConfetti();
+      }
+
+      animationFrameId = requestAnimationFrame(renderLoop);
+    }
+    renderLoop();
+
+    // ==========================================
+    // 3. LAUNCH CEREMONY LOGIC
+    // ==========================================
+    function triggerLaunch() {
+      if (isLaunched) return;
+      isLaunched = true;
+
+      // 1. Audio
+      playCeremonialAudio();
+
+      // 2. Screen Flash Effect
+      const flash = document.getElementById('flashOverlay');
+      flash.style.opacity = '1';
+      setTimeout(() => {
+        flash.style.opacity = '0';
+      }, 250);
+
+      // 3. Ambient Glow Shift
+      document.getElementById('ambientBg').classList.add('launched');
+
+      // 4. Trigger Particle Explosion from Screen Center
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height * 0.45;
+      createExplosion(centerX, centerY);
+
+      // Extra bursts from left and right corners
+      setTimeout(() => {
+        createExplosion(canvas.width * 0.25, canvas.height * 0.55);
+        createExplosion(canvas.width * 0.75, canvas.height * 0.55);
+      }, 280);
+
+      // 5. Swap UI from Standby to Launched
+      document.getElementById('standbyView').style.display = 'none';
+      const launchedView = document.getElementById('launchedView');
+      launchedView.style.display = 'flex';
+
+      // 6. Update Status
+      document.getElementById('statusIndicator').innerHTML = '🎉 <strong>TRANSFORMERS 2026 RESMI DILUNCURKAN!</strong>';
+
+      // 7. Auto Play Main Video (if provided by operator)
+      const delaySec = parseInt(document.getElementById('videoDelaySelect').value, 10);
+      const videoEl = document.getElementById('mainVideo');
+
+      if (videoEl.src && delaySec < 999) {
+        launchTimer = setTimeout(() => {
+          showVideoModal();
+        }, delaySec * 1000);
+      }
+    }
+
+    function resetStandby() {
+      isLaunched = false;
+      if (launchTimer) clearTimeout(launchTimer);
+
+      document.getElementById('ambientBg').classList.remove('launched');
+      document.getElementById('standbyView').style.display = 'flex';
+      document.getElementById('launchedView').style.display = 'none';
+      document.getElementById('statusIndicator').innerHTML = '🟢 Sistem Siap (Tekan <strong>Spasi</strong> saat bel ditekan)';
+      particles = [];
+      shockwaves = [];
+      hideVideoModal();
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.error(err);
+        });
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    function showVideoModal() {
+      const modal = document.getElementById('videoModal');
+      const video = document.getElementById('mainVideo');
+      if (video.src) {
+        modal.classList.add('show');
+        video.currentTime = 0;
+        video.play().catch(e => console.log(e));
+      }
+    }
+
+    function hideVideoModal() {
+      const modal = document.getElementById('videoModal');
+      const video = document.getElementById('mainVideo');
+      modal.classList.remove('show');
+      video.pause();
+    }
+
+    // ==========================================
+    // 4. EVENT LISTENERS (KEYBOARD & CLICKS)
+    // ==========================================
+    // Keyboard shortcuts for FOH operator
+    window.addEventListener('keydown', (e) => {
+      // Space or Enter triggers the launch
+      if (e.code === 'Space' || e.code === 'Enter') {
+        if (!isLaunched) {
+          triggerLaunch();
+        }
+      }
+      // 'R' resets to standby
+      if (e.key === 'r' || e.key === 'R') {
+        resetStandby();
+      }
+      // 'F' toggles fullscreen
+      if (e.key === 'f' || e.key === 'F') {
+        toggleFullscreen();
+      }
+      // 'Escape' closes video if playing
+      if (e.key === 'Escape') {
+        hideVideoModal();
+      }
+    });
+
+    // Radar core button click
+    document.getElementById('radarBtn').addEventListener('click', () => {
+      triggerLaunch();
+    });
+
+    // Control buttons
+    document.getElementById('btnFullscreen').addEventListener('click', toggleFullscreen);
+    document.getElementById('btnReset').addEventListener('click', resetStandby);
+
+    // Settings drawer toggle
+    const settingsPanel = document.getElementById('settingsPanel');
+    document.getElementById('btnSettings').addEventListener('click', () => {
+      settingsPanel.classList.toggle('open');
+    });
+    document.getElementById('btnCloseSettings').addEventListener('click', () => {
+      settingsPanel.classList.remove('open');
+    });
+
+    // Video File Input
+    document.getElementById('videoFileInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const url = URL.createObjectURL(file);
+        const video = document.getElementById('mainVideo');
+        video.src = url;
+        alert('File video berhasil dimuat: ' + file.name + '\nVideo akan otomatis diputar setelah peluncuran!');
+        settingsPanel.classList.remove('open');
+      }
+    });
+
+    // Close Video button
+    document.getElementById('btnCloseVideo').addEventListener('click', hideVideoModal);
+
+  </script>
+</body>
+</html>

@@ -1116,6 +1116,17 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </div>
           </div>
 
+          <a
+            href="/launching.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black transition text-sm shadow-sm border border-amber-300"
+            title="Buka Layar Panggung Seremoni Peluncuran Bel Bupati"
+          >
+            <Sparkles className="w-4 h-4 text-slate-950" />
+            <span>Layar Launching (FOH)</span>
+          </a>
+
           <button
             type="button"
             onClick={onClose}
